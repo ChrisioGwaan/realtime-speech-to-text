@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VoiceRefine — Real-time Speech Grammar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #131315;
+            --bg-elevated: #1a1a1d;
+            --text-primary: #f5f5f7;
+            --text-secondary: #8e8e93;
+            --text-muted: #48484a;
+            --accent: #32d583;
+            --accent-dim: rgba(50, 213, 131, 0.15);
+            --accent-glow: rgba(50, 213, 131, 0.4);
+            --error: #ff6b6b;
+            --warning: #ffd93d;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-active: rgba(50, 213, 131, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 24px;
+        }
+
+        /* Connection Status Banner */
+        .connection-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 12px;
+            text-align: center;
+            font-size: 0.85rem;
+            font-weight: 500;
+            z-index: 100;
+            transition: all 0.3s ease;
+        }
+
+        .connection-banner.connected {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .connection-banner.disconnected {
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--error);
+        }
+
+        .connection-banner.connecting {
+            background: rgba(255, 217, 61, 0.15);
+            color: var(--warning);
+        }
+
+        .connection-banner.hidden {
+            transform: translateY(-100%);
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+            margin-top: 20px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent) 0%, #28a869 100%);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 32px var(--accent-glow);
+        }
+
+        .logo-icon svg {
+            width: 26px;
+            height: 26px;
+            fill: var(--bg-primary);
+        }
+
+        h1 {
+            font-family: 'DM Serif Display', Georgia, serif;
+            font-size: clamp(2.5rem, 5vw, 3.5rem);
+            font-weight: 400;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+            max-width: 400px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* Mode Tabs */
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 32px;
+        }
+
+        .mode-tab {
+            padding: 10px 24px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-tab:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .mode-tab.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Main Card */
+        .main-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 40px;
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.6;
+        }
+
+        /* Mic Section */
+        .mic-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .mic-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 2px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .mic-button svg {
+            width: 36px;
+            height: 36px;
+            fill: var(--text-secondary);
+            transition: fill 0.3s ease;
+        }
+
+        .mic-button:hover:not(:disabled) {
+            border-color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .mic-button:hover:not(:disabled) svg {
+            fill: var(--accent);
+        }
+
+        .mic-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .mic-button.active {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        .mic-button.active svg {
+            fill: var(--accent);
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+            50% { box-shadow: 0 0 0 20px transparent; }
+        }
+
+        .mic-label {
+            margin-top: 16px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .mic-label.active {
+            color: var(--accent);
+        }
+
+        /* Waveform */
+        .waveform {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 40px;
+            margin-top: 16px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .waveform.active {
+            opacity: 1;
+        }
+
+        .wave-bar {
+            width: 4px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+
+        .wave-bar:nth-child(1) { animation-delay: 0s; }
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        .wave-bar:nth-child(6) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(7) { animation-delay: 0.2s; }
+
+        @keyframes wave {
+            0%, 100% { height: 8px; }
+            50% { height: 32px; }
+        }
+
+        /* Text Input Mode */
+        .text-input-section {
+            display: none;
+            margin-bottom: 40px;
+        }
+
+        .text-input-section.active {
+            display: block;
+        }
+
+        .text-input-wrapper {
+            position: relative;
+        }
+
+        .text-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: border-color 0.2s ease;
+        }
+
+        .text-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .text-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .refine-btn {
+            margin-top: 16px;
+            padding: 14px 32px;
+            background: var(--accent);
+            border: none;
+            border-radius: 10px;
+            color: var(--bg-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: auto;
+        }
+
+        .refine-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+
+        .refine-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .refine-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--bg-primary);
+        }
+
+        /* Results Section */
+        .results {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .result-block {
+            background: var(--bg-elevated);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border);
+            transition: border-color 0.3s ease;
+        }
+
+        .result-block:hover {
+            border-color: var(--border-active);
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .result-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+        }
+
+        .result-label.raw { color: var(--text-secondary); }
+        .result-label.refined { color: var(--accent); }
+
+        .result-badge {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .result-badge.raw { background: var(--text-secondary); }
+        .result-badge.refined { background: var(--accent); }
+
+        .copy-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .copy-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .result-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--text-primary);
+            min-height: 52px;
+            word-break: break-word;
+        }
+
+        .result-text.placeholder {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .result-text.partial {
+            opacity: 0.7;
+        }
+
+        /* Transcript Section */
+        .transcript-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-family: 'DM Serif Display', Georgia, serif;
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .transcript-log {
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .transcript-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .transcript-log::-webkit-scrollbar-track {
+            background: var(--bg-elevated);
+            border-radius: 3px;
+        }
+
+        .transcript-log::-webkit-scrollbar-thumb {
+            background: var(--text-muted);
+            border-radius: 3px;
+        }
+
+        .transcript-entry {
+            padding: 20px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            border-left: 3px solid var(--accent);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .entry-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .entry-raw {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .entry-refined {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px;
+            color: var(--text-muted);
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--text-muted);
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            margin-top: 32px;
+            padding: 24px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            cursor: pointer;
+        }
+
+        .settings-header svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+        }
+
+        .settings-title {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .settings-content {
+            display: none;
+        }
+
+        .settings-content.open {
+            display: block;
+        }
+
+        .setting-item {
+            margin-bottom: 16px;
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .setting-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .setting-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .setting-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-text {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .footer-text span {
+            color: var(--accent);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.error {
+            border-color: var(--error);
+        }
+
+        .toast.success {
+            border-color: var(--accent);
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+            fill: var(--accent);
+        }
+
+        .toast.error .toast-icon {
+            fill: var(--error);
+        }
+
+        .toast-message {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .container {
+                padding: 32px 16px;
+            }
+            
+            .main-card {
+                padding: 24px;
+            }
+            
+            .mic-button {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .mic-button svg {
+                width: 28px;
+                height: 28px;
+            }
+
+            .mode-tabs {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Connection Status Banner -->
+    <div class="connection-banner connecting" id="connectionBanner">
+        Connecting to server...
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                </div>
+            </div>
+            <h1>VoiceRefine</h1>
+            <p class="subtitle">Real-time speech recognition with AI-powered grammar refinement</p>
+        </header>
+
+        <!-- Mode Selection -->
+        <div class="mode-tabs">
+            <button class="mode-tab active" data-mode="speech" id="speechTab">
+                🎤 Speech Mode
+            </button>
+            <button class="mode-tab" data-mode="text" id="textTab">
+                ⌨️ Text Mode
+            </button>
+        </div>
+
+        <div class="main-card">
+            <!-- Speech Input Mode -->
+            <div class="mic-section" id="speechSection">
+                <button class="mic-button" id="micButton" aria-label="Toggle microphone" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                </button>
+                <span class="mic-label" id="micLabel">Connect to server to start</span>
+                <div class="waveform" id="waveform">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </div>
+
+            <!-- Text Input Mode -->
+            <div class="text-input-section" id="textSection">
+                <div class="text-input-wrapper">
+                    <textarea 
+                        class="text-input" 
+                        id="textInput" 
+                        placeholder="Type or paste text to refine..."
+                    ></textarea>
+                </div>
+                <button class="refine-btn" id="refineBtn" disabled>
+                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    Refine Text
+                </button>
+            </div>
+
+            <div class="results">
+                <div class="result-block">
+                    <div class="result-header">
+                        <div class="result-header-left">
+                            <div class="result-badge raw"></div>
+                            <span class="result-label raw">Raw Input</span>
+                        </div>
+                        <button class="copy-btn" data-target="rawText" title="Copy to clipboard">
+                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            Copy
+                        </button>
+                    </div>
+                    <p class="result-text placeholder" id="rawText">Your input will appear here...</p>
+                </div>
+                <div class="result-block">
+                    <div class="result-header">
+                        <div class="result-header-left">
+                            <div class="result-badge refined"></div>
+                            <span class="result-label refined">Refined Output</span>
+                        </div>
+                        <button class="copy-btn" data-target="refinedText" title="Copy to clipboard">
+                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                            Copy
+                        </button>
+                    </div>
+                    <p class="result-text placeholder" id="refinedText">AI-refined text will appear here...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="transcript-section">
+            <div class="section-header">
+                <h2 class="section-title">Transcript History</h2>
+                <button class="clear-btn" id="clearBtn">Clear All</button>
+            </div>
+            <div class="transcript-log" id="transcriptLog">
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                    <p>No transcripts yet. Start speaking or type text to see results.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-panel">
+            <div class="settings-header" id="settingsToggle">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                <span class="settings-title">Settings ▼</span>
+            </div>
+            <div class="settings-content" id="settingsContent">
+                <div class="setting-item">
+                    <label class="setting-label">Server URL</label>
+                    <input type="text" class="setting-input" id="serverUrl" value="ws://localhost:8000/ws/speech">
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">Relevant Phrases (comma-separated)</label>
+                    <input type="text" class="setting-input" id="phrasesInput" placeholder="Azure Cognitive Services, OpenAI, speech recognition...">
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">Language</label>
+                    <input type="text" class="setting-input" id="languageInput" placeholder="en-US" value="en-US">
+                </div>
+                <button class="refine-btn" id="reconnectBtn" style="margin-top: 8px;">
+                    Reconnect
+                </button>
+            </div>
+        </div>
+
+        <footer>
+            <p class="footer-text">Powered by <span>Azure Speech Services</span> & <span>Azure OpenAI</span></p>
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast">
+        <svg class="toast-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+        <span class="toast-message" id="toastMessage">Ready</span>
+    </div>
+
+    <script>
+        // =====================================================================
+        // Configuration
+        // =====================================================================
+        const CONFIG = {
+            wsUrl: 'ws://localhost:8000/ws/speech',
+            apiUrl: 'http://localhost:8000',
+            reconnectDelay: 3000,
+            pingInterval: 30000
+        };
+
+        // =====================================================================
+        // DOM Elements
+        // =====================================================================
+        const elements = {
+            connectionBanner: document.getElementById('connectionBanner'),
+            micButton: document.getElementById('micButton'),
+            micLabel: document.getElementById('micLabel'),
+            waveform: document.getElementById('waveform'),
+            rawText: document.getElementById('rawText'),
+            refinedText: document.getElementById('refinedText'),
+            transcriptLog: document.getElementById('transcriptLog'),
+            clearBtn: document.getElementById('clearBtn'),
+            settingsToggle: document.getElementById('settingsToggle'),
+            settingsContent: document.getElementById('settingsContent'),
+            phrasesInput: document.getElementById('phrasesInput'),
+            languageInput: document.getElementById('languageInput'),
+            serverUrl: document.getElementById('serverUrl'),
+            reconnectBtn: document.getElementById('reconnectBtn'),
+            toast: document.getElementById('toast'),
+            toastMessage: document.getElementById('toastMessage'),
+            speechTab: document.getElementById('speechTab'),
+            textTab: document.getElementById('textTab'),
+            speechSection: document.getElementById('speechSection'),
+            textSection: document.getElementById('textSection'),
+            textInput: document.getElementById('textInput'),
+            refineBtn: document.getElementById('refineBtn')
+        };
+
+        // =====================================================================
+        // State
+        // =====================================================================
+        let state = {
+            ws: null,
+            isConnected: false,
+            isListening: false,
+            currentMode: 'speech',
+            transcripts: [],
+            pingIntervalId: null,
+            reconnectTimeoutId: null
+        };
+
+        // =====================================================================
+        // WebSocket Connection
+        // =====================================================================
+        function connect() {
+            const wsUrl = elements.serverUrl.value || CONFIG.wsUrl;
+            
+            updateConnectionStatus('connecting');
+            
+            try {
+                state.ws = new WebSocket(wsUrl);
+                
+                state.ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    state.isConnected = true;
+                    updateConnectionStatus('connected');
+                    elements.micButton.disabled = false;
+                    elements.refineBtn.disabled = false;
+                    elements.micLabel.textContent = 'Click to start listening';
+                    
+                    // Start ping interval
+                    state.pingIntervalId = setInterval(() => {
+                        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                            state.ws.send(JSON.stringify({ action: 'ping' }));
+                        }
+                    }, CONFIG.pingInterval);
+                };
+                
+                state.ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleServerMessage(data);
+                };
+                
+                state.ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    showToast('Connection error', true);
+                };
+                
+                state.ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    state.isConnected = false;
+                    state.isListening = false;
+                    updateConnectionStatus('disconnected');
+                    elements.micButton.disabled = true;
+                    elements.micButton.classList.remove('active');
+                    elements.micLabel.classList.remove('active');
+                    elements.waveform.classList.remove('active');
+                    elements.micLabel.textContent = 'Disconnected from server';
+                    
+                    // Clear ping interval
+                    if (state.pingIntervalId) {
+                        clearInterval(state.pingIntervalId);
+                        state.pingIntervalId = null;
+                    }
+                    
+                    // Auto-reconnect
+                    state.reconnectTimeoutId = setTimeout(connect, CONFIG.reconnectDelay);
+                };
+            } catch (error) {
+                console.error('Failed to create WebSocket:', error);
+                updateConnectionStatus('disconnected');
+                state.reconnectTimeoutId = setTimeout(connect, CONFIG.reconnectDelay);
+            }
+        }
+
+        function disconnect() {
+            if (state.reconnectTimeoutId) {
+                clearTimeout(state.reconnectTimeoutId);
+                state.reconnectTimeoutId = null;
+            }
+            if (state.pingIntervalId) {
+                clearInterval(state.pingIntervalId);
+                state.pingIntervalId = null;
+            }
+            if (state.ws) {
+                state.ws.close();
+                state.ws = null;
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const banner = elements.connectionBanner;
+            banner.classList.remove('connected', 'disconnected', 'connecting', 'hidden');
+            
+            switch (status) {
+                case 'connected':
+                    banner.classList.add('connected');
+                    banner.textContent = '✓ Connected to server';
+                    setTimeout(() => banner.classList.add('hidden'), 2000);
+                    break;
+                case 'disconnected':
+                    banner.classList.add('disconnected');
+                    banner.textContent = '✗ Disconnected - Reconnecting...';
+                    break;
+                case 'connecting':
+                    banner.classList.add('connecting');
+                    banner.textContent = 'Connecting to server...';
+                    break;
+            }
+        }
+
+        // =====================================================================
+        // Message Handling
+        // =====================================================================
+        function handleServerMessage(data) {
+            console.log('Server message:', data);
+            
+            switch (data.type) {
+                case 'partial':
+                    updateRawText(data.text, true);
+                    break;
+                    
+                case 'final':
+                    updateRawText(data.text, false);
+                    if (data.refined) {
+                        updateRefinedText(data.refined);
+                        addTranscriptEntry(data.text, data.refined);
+                    }
+                    break;
+                    
+                case 'status':
+                    showToast(data.text);
+                    break;
+                    
+                case 'error':
+                    showToast(data.text, true);
+                    break;
+                    
+                case 'pong':
+                    // Ping response - connection is alive
+                    break;
+            }
+        }
+
+        // =====================================================================
+        // Speech Recognition Control
+        // =====================================================================
+        function toggleListening() {
+            if (!state.isConnected || !state.ws) {
+                showToast('Not connected to server', true);
+                return;
+            }
+            
+            state.isListening = !state.isListening;
+            
+            if (state.isListening) {
+                // Start recognition
+                state.ws.send(JSON.stringify({
+                    action: 'start',
+                    language: elements.languageInput.value || 'en-US',
+                    relevant_phrases: elements.phrasesInput.value || ''
+                }));
+                
+                elements.micButton.classList.add('active');
+                elements.micLabel.classList.add('active');
+                elements.micLabel.textContent = 'Listening...';
+                elements.waveform.classList.add('active');
+            } else {
+                // Stop recognition
+                state.ws.send(JSON.stringify({ action: 'stop' }));
+                
+                elements.micButton.classList.remove('active');
+                elements.micLabel.classList.remove('active');
+                elements.micLabel.textContent = 'Click to start listening';
+                elements.waveform.classList.remove('active');
+            }
+        }
+
+        // =====================================================================
+        // Text Refinement (Text Mode)
+        // =====================================================================
+        async function refineTextInput() {
+            const text = elements.textInput.value.trim();
+            if (!text) {
+                showToast('Please enter some text', true);
+                return;
+            }
+            
+            if (!state.isConnected || !state.ws) {
+                showToast('Not connected to server', true);
+                return;
+            }
+            
+            elements.refineBtn.disabled = true;
+            updateRawText(text, false);
+            updateRefinedText('Processing...', true);
+            
+            // Send refine request via WebSocket
+            state.ws.send(JSON.stringify({
+                action: 'refine',
+                text: text,
+                relevant_phrases: elements.phrasesInput.value || ''
+            }));
+            
+            elements.refineBtn.disabled = false;
+        }
+
+        // =====================================================================
+        // UI Updates
+        // =====================================================================
+        function updateRawText(text, isPartial = false) {
+            elements.rawText.textContent = text;
+            elements.rawText.classList.remove('placeholder');
+            elements.rawText.classList.toggle('partial', isPartial);
+        }
+
+        function updateRefinedText(text, isProcessing = false) {
+            elements.refinedText.textContent = text;
+            elements.refinedText.classList.remove('placeholder');
+            elements.refinedText.style.opacity = isProcessing ? '0.7' : '1';
+        }
+
+        function addTranscriptEntry(raw, refined) {
+            // Remove empty state if exists
+            const emptyState = elements.transcriptLog.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const entry = document.createElement('div');
+            entry.className = 'transcript-entry';
+            
+            const time = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            entry.innerHTML = `
+                <div class="entry-time">${time}</div>
+                <div class="entry-raw">${escapeHtml(raw)}</div>
+                <div class="entry-refined">${escapeHtml(refined)}</div>
+            `;
+            
+            elements.transcriptLog.insertBefore(entry, elements.transcriptLog.firstChild);
+            state.transcripts.push({ raw, refined, time });
+        }
+
+        function clearTranscripts() {
+            state.transcripts = [];
+            elements.transcriptLog.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                    <p>No transcripts yet. Start speaking or type text to see results.</p>
+                </div>
+            `;
+            elements.rawText.textContent = 'Your input will appear here...';
+            elements.rawText.classList.add('placeholder');
+            elements.refinedText.textContent = 'AI-refined text will appear here...';
+            elements.refinedText.classList.add('placeholder');
+            showToast('Transcripts cleared');
+        }
+
+        function showToast(message, isError = false) {
+            elements.toastMessage.textContent = message;
+            elements.toast.classList.remove('error', 'success');
+            elements.toast.classList.add(isError ? 'error' : 'success');
+            elements.toast.classList.add('show');
+            
+            setTimeout(() => {
+                elements.toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // =====================================================================
+        // Mode Switching
+        // =====================================================================
+        function switchMode(mode) {
+            state.currentMode = mode;
+            
+            // Update tabs
+            elements.speechTab.classList.toggle('active', mode === 'speech');
+            elements.textTab.classList.toggle('active', mode === 'text');
+            
+            // Update sections
+            elements.speechSection.style.display = mode === 'speech' ? 'flex' : 'none';
+            elements.textSection.classList.toggle('active', mode === 'text');
+            
+            // Stop listening if switching away from speech mode
+            if (mode !== 'speech' && state.isListening) {
+                toggleListening();
+            }
+        }
+
+        // =====================================================================
+        // Copy to Clipboard
+        // =====================================================================
+        async function copyToClipboard(targetId) {
+            const element = document.getElementById(targetId);
+            const text = element.textContent;
+            
+            if (element.classList.contains('placeholder')) {
+                showToast('Nothing to copy', true);
+                return;
+            }
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('Copied to clipboard');
+            } catch (err) {
+                showToast('Failed to copy', true);
+            }
+        }
+
+        // =====================================================================
+        // Settings
+        // =====================================================================
+        function toggleSettings() {
+            elements.settingsContent.classList.toggle('open');
+            const arrow = elements.settingsToggle.querySelector('.settings-title');
+            arrow.textContent = elements.settingsContent.classList.contains('open') 
+                ? 'Settings ▲' 
+                : 'Settings ▼';
+        }
+
+        // =====================================================================
+        // Event Listeners
+        // =====================================================================
+        function setupEventListeners() {
+            // Mic button
+            elements.micButton.addEventListener('click', toggleListening);
+            
+            // Mode tabs
+            elements.speechTab.addEventListener('click', () => switchMode('speech'));
+            elements.textTab.addEventListener('click', () => switchMode('text'));
+            
+            // Text mode
+            elements.refineBtn.addEventListener('click', refineTextInput);
+            elements.textInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                    refineTextInput();
+                }
+            });
+            
+            // Clear button
+            elements.clearBtn.addEventListener('click', clearTranscripts);
+            
+            // Settings
+            elements.settingsToggle.addEventListener('click', toggleSettings);
+            elements.reconnectBtn.addEventListener('click', () => {
+                disconnect();
+                connect();
+            });
+            
+            // Copy buttons
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    copyToClipboard(btn.dataset.target);
+                });
+            });
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && e.target === document.body && state.currentMode === 'speech') {
+                    e.preventDefault();
+                    toggleListening();
+                }
+            });
+        }
+
+        // =====================================================================
+        // Initialize
+        // =====================================================================
+        function init() {
+            // Set default values
+            elements.phrasesInput.value = 'Azure Cognitive Services, non-profit organization, speech recognition, OpenAI API';
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Connect to server
+            connect();
+        }
+
+        // Start app when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
