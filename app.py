@@ -14,10 +14,11 @@ import base64
 from typing import Optional
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -32,7 +33,8 @@ SPEECH_KEY = os.environ.get('SPEECH_KEY')
 SPEECH_REGION = os.environ.get('SPEECH_REGION')
 AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT')
 AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
-OPENAI_MODEL = os.environ.get('OPENAI_MODEL', 'gpt-4o')
+OPENAI_MODEL = os.environ.get('AZURE_AI_DEPLOYMENT', 'gpt-4o')
+ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')  # For API authentication
 
 # Default relevant phrases for grammar correction context
 DEFAULT_PHRASES = "Azure Cognitive Services, non-profit organization, speech recognition, OpenAI API"
@@ -74,6 +76,8 @@ async def lifespan(app: FastAPI):
         missing_vars.append("AZURE_OPENAI_ENDPOINT")
     if not AZURE_OPENAI_API_KEY:
         missing_vars.append("AZURE_OPENAI_API_KEY")
+    if not ACCESS_TOKEN:
+        missing_vars.append("ACCESS_TOKEN")
     
     if missing_vars:
         print(f"⚠️  Warning: Missing environment variables: {', '.join(missing_vars)}")
@@ -110,17 +114,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# OAuth2 Bearer Token security
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Verify the Bearer token."""
+    token = credentials.credentials
+    if not ACCESS_TOKEN or token != ACCESS_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid or missing token")
+    return token
+
 
 def rewrite_content(input_text: str, relevant_phrases: str = DEFAULT_PHRASES) -> str:
     """
-    Refines the user's input sentence by fixing grammar issues.
+    Translates the user's input text to Chinese.
     
     Args:
-        input_text: The raw input sentence to rewrite.
-        relevant_phrases: Context phrases for spelling correction.
+        input_text: The raw input text to translate.
+        relevant_phrases: Context phrases for better translation.
     
     Returns:
-        The refined sentence.
+        The translated text in Chinese.
     """
     if not openai_client:
         return input_text  # Return original if no client
@@ -129,16 +143,11 @@ def rewrite_content(input_text: str, relevant_phrases: str = DEFAULT_PHRASES) ->
         {
             "role": "system",
             "content": (
-                "You are a helpful assistant to help the user rewrite sentences. "
-                "Please fix the grammar errors in the user-provided sentence and make it more readable. "
-                "You can do minor rewriting but MUST NOT change the sentence's meaning. "
-                "DO NOT make up new content. DO NOT answer questions. "
-                f"Here are phrases relevant to the sentences: '{relevant_phrases}'. "
-                "If they appear in the sentence and are misspelled, please fix them. "
-                "Return ONLY the corrected sentence, nothing else.\n\n"
-                "Example corrections:\n"
-                "User: how ar you\nYour response: How are you?\n\n"
-                "User: what yur name?\nYour response: What's your name?\n\n"
+                "You are a helpful assistant that translates text to Chinese. "
+                "Translate the user's input to natural, fluent Chinese. "
+                "Keep the meaning accurate and context appropriate. "
+                f"Relevant phrases for context: '{relevant_phrases}'. "
+                "Return ONLY the translated text, nothing else."
             )
         },
         {"role": "user", "content": input_text}
@@ -148,8 +157,7 @@ def rewrite_content(input_text: str, relevant_phrases: str = DEFAULT_PHRASES) ->
         response = openai_client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=messages,
-            max_tokens=500,
-            temperature=0.3  # Lower temperature for more consistent corrections
+            max_completion_tokens=500
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
@@ -174,7 +182,7 @@ async def root():
     }
 
 
-@app.post("/api/refine", response_model=RefineResponse)
+@app.post("/api/refine", response_model=RefineResponse, dependencies=[Depends(verify_token)])
 async def refine_text(request: RefineRequest):
     """
     Refine text with AI grammar correction.
@@ -192,7 +200,7 @@ async def refine_text(request: RefineRequest):
     )
 
 
-@app.get("/api/config")
+@app.get("/api/config", dependencies=[Depends(verify_token)])
 async def get_config():
     """Get current configuration status (without sensitive data)."""
     return {
@@ -282,7 +290,7 @@ class SpeechRecognitionSession:
 
 
 @app.websocket("/ws/speech")
-async def websocket_speech(websocket: WebSocket):
+async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
     """
     WebSocket endpoint for real-time speech recognition.
     
@@ -301,6 +309,15 @@ async def websocket_speech(websocket: WebSocket):
     session: Optional[SpeechRecognitionSession] = None
     
     try:
+        # Verify token
+        if not ACCESS_TOKEN or token != ACCESS_TOKEN:
+            await websocket.send_json({
+                "type": "error",
+                "text": "Invalid or missing token"
+            })
+            await websocket.close()
+            return
+        
         await websocket.send_json({
             "type": "status",
             "text": "Connected to VoiceRefine API"
