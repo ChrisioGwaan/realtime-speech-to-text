@@ -9,6 +9,23 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-elevated: #eef1f6;
+            --text-primary: #1e2a3a;
+            --text-secondary: #4a5568;
+            --text-muted: #94a3b8;
+            --accent: #10b981;
+            --accent-dim: rgba(16, 185, 129, 0.1);
+            --accent-glow: rgba(16, 185, 129, 0.25);
+            --error: #ef4444;
+            --warning: #f59e0b;
+            --border: rgba(0, 0, 0, 0.08);
+            --border-active: rgba(16, 185, 129, 0.5);
+            --grid-color: rgba(0, 0, 0, 0.025);
+        }
+
+        [data-theme="dark"] {
             --bg-primary: #0a0a0b;
             --bg-secondary: #131315;
             --bg-elevated: #1a1a1d;
@@ -22,6 +39,7 @@
             --warning: #ffd93d;
             --border: rgba(255, 255, 255, 0.08);
             --border-active: rgba(50, 213, 131, 0.3);
+            --grid-color: rgba(255, 255, 255, 0.02);
         }
 
         * {
@@ -42,9 +60,9 @@
             content: '';
             position: fixed;
             inset: 0;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-image:
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
             background-size: 60px 60px;
             pointer-events: none;
             z-index: 0;
@@ -53,9 +71,49 @@
         .container {
             position: relative;
             z-index: 1;
-            max-width: 900px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 60px 24px;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 101;
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: start;
         }
 
         /* Connection Status Banner */
@@ -175,7 +233,6 @@
             border: 1px solid var(--border);
             border-radius: 24px;
             padding: 40px;
-            margin-bottom: 32px;
             position: relative;
             overflow: hidden;
         }
@@ -711,20 +768,26 @@
         }
 
         /* Responsive */
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 640px) {
             .container {
                 padding: 32px 16px;
             }
-            
+
             .main-card {
                 padding: 24px;
             }
-            
+
             .mic-button {
                 width: 80px;
                 height: 80px;
             }
-            
+
             .mic-button svg {
                 width: 28px;
                 height: 28px;
@@ -732,6 +795,11 @@
 
             .mode-tabs {
                 flex-direction: column;
+            }
+
+            .theme-toggle {
+                bottom: 16px;
+                right: 16px;
             }
         }
     </style>
@@ -741,6 +809,12 @@
     <div class="connection-banner connecting" id="connectionBanner">
         Connecting to server...
     </div>
+
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+        <svg id="themeIcon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+        <span id="themeLabel">Dark Mode</span>
+    </button>
 
     <div class="container">
         <header>
@@ -763,78 +837,80 @@
             </button>
         </div>
 
-        <div class="main-card">
-            <!-- Speech Input Mode -->
-            <div class="mic-section" id="speechSection">
-                <button class="mic-button" id="micButton" aria-label="Toggle microphone" disabled>
-                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-                </button>
-                <span class="mic-label" id="micLabel">Connect to server to start</span>
-                <div class="waveform" id="waveform">
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                    <div class="wave-bar"></div>
-                </div>
-            </div>
-
-            <!-- Text Input Mode -->
-            <div class="text-input-section" id="textSection">
-                <div class="text-input-wrapper">
-                    <textarea 
-                        class="text-input" 
-                        id="textInput" 
-                        placeholder="Type or paste text to refine..."
-                    ></textarea>
-                </div>
-                <button class="refine-btn" id="refineBtn" disabled>
-                    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                    Refine Text
-                </button>
-            </div>
-
-            <div class="results">
-                <div class="result-block">
-                    <div class="result-header">
-                        <div class="result-header-left">
-                            <div class="result-badge raw"></div>
-                            <span class="result-label raw">Raw Input</span>
-                        </div>
-                        <button class="copy-btn" data-target="rawText" title="Copy to clipboard">
-                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                            Copy
-                        </button>
+        <div class="main-layout">
+            <div class="main-card">
+                <!-- Speech Input Mode -->
+                <div class="mic-section" id="speechSection">
+                    <button class="mic-button" id="micButton" aria-label="Toggle microphone" disabled>
+                        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                    </button>
+                    <span class="mic-label" id="micLabel">Connect to server to start</span>
+                    <div class="waveform" id="waveform">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
                     </div>
-                    <p class="result-text placeholder" id="rawText">Your input will appear here...</p>
                 </div>
-                <div class="result-block">
-                    <div class="result-header">
-                        <div class="result-header-left">
-                            <div class="result-badge refined"></div>
-                            <span class="result-label refined">Refined Output</span>
-                        </div>
-                        <button class="copy-btn" data-target="refinedText" title="Copy to clipboard">
-                            <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                            Copy
-                        </button>
-                    </div>
-                    <p class="result-text placeholder" id="refinedText">AI-refined text will appear here...</p>
-                </div>
-            </div>
-        </div>
 
-        <div class="transcript-section">
-            <div class="section-header">
-                <h2 class="section-title">Transcript History</h2>
-                <button class="clear-btn" id="clearBtn">Clear All</button>
+                <!-- Text Input Mode -->
+                <div class="text-input-section" id="textSection">
+                    <div class="text-input-wrapper">
+                        <textarea
+                            class="text-input"
+                            id="textInput"
+                            placeholder="Type or paste text to refine..."
+                        ></textarea>
+                    </div>
+                    <button class="refine-btn" id="refineBtn" disabled>
+                        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                        Refine Text
+                    </button>
+                </div>
+
+                <div class="results">
+                    <div class="result-block">
+                        <div class="result-header">
+                            <div class="result-header-left">
+                                <div class="result-badge raw"></div>
+                                <span class="result-label raw">Raw Input</span>
+                            </div>
+                            <button class="copy-btn" data-target="rawText" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                Copy
+                            </button>
+                        </div>
+                        <p class="result-text placeholder" id="rawText">Your input will appear here...</p>
+                    </div>
+                    <div class="result-block">
+                        <div class="result-header">
+                            <div class="result-header-left">
+                                <div class="result-badge refined"></div>
+                                <span class="result-label refined">Refined Output</span>
+                            </div>
+                            <button class="copy-btn" data-target="refinedText" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                                Copy
+                            </button>
+                        </div>
+                        <p class="result-text placeholder" id="refinedText">AI-refined text will appear here...</p>
+                    </div>
+                </div>
             </div>
-            <div class="transcript-log" id="transcriptLog">
-                <div class="empty-state">
-                    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                    <p>No transcripts yet. Start speaking or type text to see results.</p>
+
+            <div class="transcript-section">
+                <div class="section-header">
+                    <h2 class="section-title">Transcript History</h2>
+                    <button class="clear-btn" id="clearBtn">Clear All</button>
+                </div>
+                <div class="transcript-log" id="transcriptLog">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                        <p>No transcripts yet. Start speaking or type text to see results.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -910,7 +986,10 @@
             speechSection: document.getElementById('speechSection'),
             textSection: document.getElementById('textSection'),
             textInput: document.getElementById('textInput'),
-            refineBtn: document.getElementById('refineBtn')
+            refineBtn: document.getElementById('refineBtn'),
+            themeToggle: document.getElementById('themeToggle'),
+            themeIcon: document.getElementById('themeIcon'),
+            themeLabel: document.getElementById('themeLabel')
         };
 
         // =====================================================================
@@ -1236,13 +1315,52 @@
         }
 
         // =====================================================================
+        // Theme Toggle
+        // =====================================================================
+        function toggleTheme() {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+
+            if (isDark) {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+                updateThemeUI(false);
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeUI(true);
+            }
+        }
+
+        function updateThemeUI(isDark) {
+            if (isDark) {
+                elements.themeIcon.innerHTML = '<path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0l1.06-1.06z"/>';
+                elements.themeLabel.textContent = 'Light Mode';
+            } else {
+                elements.themeIcon.innerHTML = '<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>';
+                elements.themeLabel.textContent = 'Dark Mode';
+            }
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            // Default to light mode
+            if (savedTheme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                updateThemeUI(true);
+            } else {
+                updateThemeUI(false);
+            }
+        }
+
+        // =====================================================================
         // Settings
         // =====================================================================
         function toggleSettings() {
             elements.settingsContent.classList.toggle('open');
             const arrow = elements.settingsToggle.querySelector('.settings-title');
-            arrow.textContent = elements.settingsContent.classList.contains('open') 
-                ? 'Settings ▲' 
+            arrow.textContent = elements.settingsContent.classList.contains('open')
+                ? 'Settings ▲'
                 : 'Settings ▼';
         }
 
@@ -1274,6 +1392,9 @@
                 disconnect();
                 connect();
             });
+
+            // Theme toggle
+            elements.themeToggle.addEventListener('click', toggleTheme);
             
             // Copy buttons
             document.querySelectorAll('.copy-btn').forEach(btn => {
@@ -1295,12 +1416,15 @@
         // Initialize
         // =====================================================================
         function init() {
+            // Initialize theme (light mode by default)
+            initTheme();
+
             // Set default values
             elements.phrasesInput.value = 'Azure Cognitive Services, non-profit organization, speech recognition, OpenAI API';
-            
+
             // Setup event listeners
             setupEventListeners();
-            
+
             // Connect to server
             connect();
         }
