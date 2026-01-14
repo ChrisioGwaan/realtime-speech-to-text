@@ -8,16 +8,12 @@ This server provides:
 """
 
 import os
-import json
 import asyncio
-import base64
 from typing import Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -33,7 +29,7 @@ SPEECH_KEY = os.environ.get('SPEECH_KEY')
 SPEECH_REGION = os.environ.get('SPEECH_REGION')
 AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT')
 AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
-OPENAI_MODEL = os.environ.get('AZURE_AI_DEPLOYMENT', 'gpt-4o')
+OPENAI_MODEL = os.environ.get('AZURE_AI_DEPLOYMENT', 'gpt-5.2-chat')
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')  # For API authentication
 
 # Default relevant phrases for grammar correction context
