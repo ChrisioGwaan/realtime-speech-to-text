@@ -850,6 +850,10 @@
                     <input type="text" class="setting-input" id="serverUrl" value="ws://localhost:8000/ws/speech">
                 </div>
                 <div class="setting-item">
+                    <label class="setting-label">Access Token</label>
+                    <input type="password" class="setting-input" id="accessToken" placeholder="Enter your access token">
+                </div>
+                <div class="setting-item">
                     <label class="setting-label">Relevant Phrases (comma-separated)</label>
                     <input type="text" class="setting-input" id="phrasesInput" placeholder="Azure Cognitive Services, OpenAI, speech recognition...">
                 </div>
@@ -902,6 +906,7 @@
             phrasesInput: document.getElementById('phrasesInput'),
             languageInput: document.getElementById('languageInput'),
             serverUrl: document.getElementById('serverUrl'),
+            accessToken: document.getElementById('accessToken'),
             reconnectBtn: document.getElementById('reconnectBtn'),
             toast: document.getElementById('toast'),
             toastMessage: document.getElementById('toastMessage'),
@@ -930,7 +935,9 @@
         // WebSocket Connection
         // =====================================================================
         function connect() {
-            const wsUrl = elements.serverUrl.value || CONFIG.wsUrl;
+            const baseUrl = elements.serverUrl.value || CONFIG.wsUrl;
+            const token = elements.accessToken.value.trim();
+            const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
             
             updateConnectionStatus('connecting');
             
