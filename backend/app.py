@@ -5,11 +5,13 @@ This server provides:
 1. WebSocket endpoint for real-time audio streaming and transcription
 2. REST endpoint for text-only grammar refinement
 3. Integration with Azure Speech Services and Azure OpenAI
+4. AI-powered smart extraction for form auto-filling
 """
 
 import os
+import json
 import asyncio
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Query
@@ -47,10 +49,27 @@ class RefineResponse(BaseModel):
     refined: str
 
 
+class ExtractedData(BaseModel):
+    speaker_name: Optional[str] = None
+    topic: Optional[str] = None
+    category: Optional[str] = None
+    priority: Optional[str] = None
+    key_points: List[str] = []
+    action_items: List[str] = []
+    notes: Optional[str] = None
+
+
+class SmartRefineResponse(BaseModel):
+    original: str
+    refined: str
+    extracted: ExtractedData
+
+
 class TranscriptionResult(BaseModel):
     type: str  # "partial", "final", "error"
     text: str
     refined: Optional[str] = None
+    extracted: Optional[Dict[str, Any]] = None
 
 
 # Initialize Azure OpenAI client
@@ -96,8 +115,8 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="VoiceRefine API",
-    description="Real-time speech-to-text with AI grammar refinement",
-    version="1.0.0",
+    description="Real-time speech-to-text with AI grammar refinement and smart extraction",
+    version="2.0.0",
     lifespan=lifespan
 )
 
@@ -161,6 +180,209 @@ def rewrite_content(input_text: str, relevant_phrases: str = DEFAULT_PHRASES) ->
         return input_text  # Return original on error
 
 
+def extract_smart_data(input_text: str, accumulated_context: str = "") -> Dict[str, Any]:
+    """
+    Uses AI to intelligently extract structured data from speech text.
+    
+    Args:
+        input_text: The current speech text to analyze.
+        accumulated_context: Previous context for better understanding.
+    
+    Returns:
+        Dictionary with extracted structured data.
+    """
+    if not openai_client:
+        return {}
+    
+    full_context = f"{accumulated_context}\n{input_text}".strip()
+    
+    messages = [
+        {
+            "role": "system",
+            "content": """You are an intelligent assistant that extracts structured information from speech transcriptions.
+
+Analyze the provided text and extract the following information if present. Be smart about inference - don't just look for exact phrases, understand the context.
+
+Return a JSON object with these fields (use null for fields you can't determine):
+{
+    "speaker_name": "Name of the person speaking (if they introduce themselves or are mentioned)",
+    "topic": "Main topic or subject being discussed (brief, 5-10 words max)",
+    "category": "One of: meeting, interview, lecture, brainstorm, support, personal, technical, other",
+    "priority": "One of: high, medium, low (based on urgency cues, deadlines, importance)",
+    "key_points": ["Array of main points or important information mentioned"],
+    "action_items": ["Array of tasks, to-dos, or things that need to be done"],
+    "notes": "Any other relevant context or information worth noting"
+}
+
+Guidelines:
+- speaker_name: Look for "my name is", "I'm", "this is X speaking", or contextual references
+- topic: Identify the main subject - what is this conversation/speech about?
+- category: 
+  * "meeting" - agenda items, attendees, minutes, schedules
+  * "interview" - candidate discussions, job-related, hiring
+  * "lecture" - educational content, presentations, teaching
+  * "brainstorm" - ideas, creativity, "what if", possibilities
+  * "support" - customer issues, problems, troubleshooting
+  * "personal" - personal matters, reminders, daily tasks
+  * "technical" - code, systems, technical discussions
+  * "other" - doesn't fit other categories
+- priority:
+  * "high" - urgent, ASAP, critical, emergency, deadline today/tomorrow
+  * "medium" - important, soon, this week, should prioritize
+  * "low" - when possible, no rush, eventually
+- key_points: Important facts, decisions, or information stated
+- action_items: Tasks prefixed with "need to", "must", "should", "will", "going to", "please", "make sure", "don't forget", "remember to"
+- notes: Context that doesn't fit elsewhere but is valuable
+
+Only include fields where you have reasonable confidence. For arrays, include only clear items.
+Return ONLY valid JSON, no markdown formatting or explanation."""
+        },
+        {
+            "role": "user",
+            "content": f"Extract structured information from this speech text:\n\n{full_context}"
+        }
+    ]
+    
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=messages
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        
+        # Clean up potential markdown formatting
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        
+        extracted = json.loads(result_text.strip())
+        
+        # Ensure arrays are lists
+        if "key_points" not in extracted or extracted["key_points"] is None:
+            extracted["key_points"] = []
+        if "action_items" not in extracted or extracted["action_items"] is None:
+            extracted["action_items"] = []
+            
+        return extracted
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {e}")
+        return {}
+    except Exception as e:
+        print(f"Smart extraction error: {e}")
+        return {}
+
+
+def smart_rewrite_and_extract(input_text: str, relevant_phrases: str = DEFAULT_PHRASES, accumulated_context: str = "") -> Dict[str, Any]:
+    """
+    Combined function that both refines text and extracts structured data.
+    Makes a single API call for efficiency.
+    
+    Args:
+        input_text: The raw input text to process.
+        relevant_phrases: Context phrases for better processing.
+        accumulated_context: Previous context for better understanding.
+    
+    Returns:
+        Dictionary with 'refined' text and 'extracted' data.
+    """
+    if not openai_client:
+        return {"refined": input_text, "extracted": {}}
+    
+    full_context = f"{accumulated_context}\n{input_text}".strip() if accumulated_context else input_text
+    
+    messages = [
+        {
+            "role": "system",
+            "content": f"""You are a bilingual assistant that performs two tasks:
+
+TASK 1 - TRANSLATION:
+Translate the user's input to natural, fluent Chinese. Keep meaning accurate.
+Relevant context phrases: '{relevant_phrases}'
+
+TASK 2 - SMART EXTRACTION:
+Extract structured information for form auto-filling.
+
+Return a JSON object with this exact structure:
+{{
+    "refined": "The Chinese translation of the input",
+    "extracted": {{
+        "speaker_name": "Name if mentioned (null if not)",
+        "topic": "Main topic in 5-10 words (null if unclear)",
+        "category": "meeting|interview|lecture|brainstorm|support|personal|technical|other (null if unclear)",
+        "priority": "high|medium|low based on urgency (null if no urgency cues)",
+        "key_points": ["Important points mentioned"],
+        "action_items": ["Tasks or to-dos mentioned"],
+        "notes": "Other relevant context (null if none)"
+    }}
+}}
+
+Category guidelines:
+- meeting: agenda, attendees, minutes, schedules
+- interview: candidates, hiring, job discussions
+- lecture: educational, presentations, teaching
+- brainstorm: ideas, creativity, possibilities
+- support: customer issues, troubleshooting
+- personal: personal matters, daily tasks
+- technical: code, systems, technical topics
+
+Priority guidelines:
+- high: urgent, ASAP, critical, today/tomorrow deadlines
+- medium: important, this week, should prioritize
+- low: when possible, no rush
+
+Return ONLY valid JSON, no markdown or explanation."""
+        },
+        {
+            "role": "user",
+            "content": f"Process this text:\n\n{input_text}\n\nFull context for extraction:\n{full_context}"
+        }
+    ]
+    
+    try:
+        response = openai_client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=messages
+        )
+        
+        result_text = response.choices[0].message.content.strip()
+        
+        # Clean up potential markdown formatting
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        
+        result = json.loads(result_text.strip())
+        
+        # Ensure required structure
+        if "refined" not in result:
+            result["refined"] = input_text
+        if "extracted" not in result:
+            result["extracted"] = {}
+        if "key_points" not in result["extracted"] or result["extracted"]["key_points"] is None:
+            result["extracted"]["key_points"] = []
+        if "action_items" not in result["extracted"] or result["extracted"]["action_items"] is None:
+            result["extracted"]["action_items"] = []
+            
+        return result
+        
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing error: {e}")
+        # Fallback to basic translation
+        refined = rewrite_content(input_text, relevant_phrases)
+        return {"refined": refined, "extracted": {}}
+    except Exception as e:
+        print(f"Smart processing error: {e}")
+        return {"refined": input_text, "extracted": {}}
+
+
 # ============================================================================
 # REST Endpoints
 # ============================================================================
@@ -171,9 +393,11 @@ async def root():
     return {
         "status": "ok",
         "service": "VoiceRefine API",
+        "version": "2.0.0",
         "features": {
             "speech_to_text": bool(SPEECH_KEY and SPEECH_REGION),
-            "grammar_refinement": bool(openai_client)
+            "grammar_refinement": bool(openai_client),
+            "smart_extraction": bool(openai_client)
         }
     }
 
@@ -196,6 +420,25 @@ async def refine_text(request: RefineRequest):
     )
 
 
+@app.post("/api/smart-refine", response_model=SmartRefineResponse, dependencies=[Depends(verify_token)])
+async def smart_refine_text(request: RefineRequest):
+    """
+    Refine text and extract structured data in one call.
+    
+    Use this endpoint for combined translation and smart form filling.
+    """
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
+    
+    result = smart_rewrite_and_extract(request.text, request.relevant_phrases)
+    
+    return SmartRefineResponse(
+        original=request.text,
+        refined=result.get("refined", request.text),
+        extracted=ExtractedData(**result.get("extracted", {}))
+    )
+
+
 @app.get("/api/config", dependencies=[Depends(verify_token)])
 async def get_config():
     """Get current configuration status (without sensitive data)."""
@@ -203,7 +446,8 @@ async def get_config():
         "speech_region": SPEECH_REGION,
         "openai_model": OPENAI_MODEL,
         "speech_configured": bool(SPEECH_KEY),
-        "openai_configured": bool(openai_client)
+        "openai_configured": bool(openai_client),
+        "smart_extraction_enabled": bool(openai_client)
     }
 
 
@@ -219,14 +463,18 @@ class SpeechRecognitionSession:
         self.relevant_phrases = relevant_phrases
         self.speech_recognizer: Optional[speechsdk.SpeechRecognizer] = None
         self.is_running = False
+        self.accumulated_context = ""  # Store context for smarter extraction
         
-    async def send_result(self, result_type: str, text: str, refined: Optional[str] = None):
+    async def send_result(self, result_type: str, text: str, refined: Optional[str] = None, extracted: Optional[Dict] = None):
         """Send transcription result to client."""
-        await self.websocket.send_json({
+        message = {
             "type": result_type,
             "text": text,
             "refined": refined
-        })
+        }
+        if extracted:
+            message["extracted"] = extracted
+        await self.websocket.send_json(message)
     
     def setup_recognizer(self, language: str = "en-US"):
         """Initialize Azure Speech recognizer with microphone input."""
@@ -256,8 +504,26 @@ class SpeechRecognitionSession:
         def on_recognized(evt: speechsdk.SpeechRecognitionEventArgs):
             """Handle final recognition results."""
             if evt.result.text:
-                refined = rewrite_content(evt.result.text, self.relevant_phrases)
-                asyncio.run(self.send_result("final", evt.result.text, refined))
+                # Use smart extraction with accumulated context
+                result = smart_rewrite_and_extract(
+                    evt.result.text, 
+                    self.relevant_phrases,
+                    self.accumulated_context
+                )
+                
+                # Update accumulated context for future extractions
+                self.accumulated_context += " " + evt.result.text
+                # Keep context manageable (last ~500 words)
+                words = self.accumulated_context.split()
+                if len(words) > 500:
+                    self.accumulated_context = " ".join(words[-500:])
+                
+                asyncio.run(self.send_result(
+                    "final", 
+                    evt.result.text, 
+                    result.get("refined"),
+                    result.get("extracted")
+                ))
         
         def on_canceled(evt: speechsdk.SpeechRecognitionCanceledEventArgs):
             """Handle recognition cancellation."""
@@ -272,6 +538,7 @@ class SpeechRecognitionSession:
         """Start continuous recognition."""
         self.setup_recognizer(language)
         self.is_running = True
+        self.accumulated_context = ""  # Reset context on new session
         
         # Start recognition
         self.speech_recognizer.start_continuous_recognition_async().get()
@@ -283,26 +550,32 @@ class SpeechRecognitionSession:
             self.speech_recognizer.stop_continuous_recognition_async().get()
             self.is_running = False
             await self.send_result("status", "Recognition stopped")
+    
+    def clear_context(self):
+        """Clear accumulated context."""
+        self.accumulated_context = ""
 
 
 @app.websocket("/ws/speech")
 async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
     """
-    WebSocket endpoint for real-time speech recognition.
+    WebSocket endpoint for real-time speech recognition with smart extraction.
     
     Client messages:
     - {"action": "start", "language": "en-US", "relevant_phrases": "..."}
     - {"action": "stop"}
-    - {"action": "refine", "text": "..."}
+    - {"action": "refine", "text": "...", "context": "..."}
+    - {"action": "clear_context"}
     
     Server messages:
     - {"type": "partial", "text": "..."}
-    - {"type": "final", "text": "...", "refined": "..."}
+    - {"type": "final", "text": "...", "refined": "...", "extracted": {...}}
     - {"type": "status", "text": "..."}
     - {"type": "error", "text": "..."}
     """
     await websocket.accept()
     session: Optional[SpeechRecognitionSession] = None
+    accumulated_context = ""  # For text mode
     
     try:
         # Verify token
@@ -316,7 +589,7 @@ async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
         
         await websocket.send_json({
             "type": "status",
-            "text": "Connected to VoiceRefine API"
+            "text": "Connected to VoiceRefine API v2.0"
         })
         
         while True:
@@ -346,17 +619,36 @@ async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
                     session = None
                     
             elif action == "refine":
-                # Refine text without speech recognition
+                # Refine text with smart extraction (text mode)
                 text = data.get("text", "")
                 phrases = data.get("relevant_phrases", DEFAULT_PHRASES)
+                context = data.get("context", accumulated_context)
                 
                 if text:
-                    refined = rewrite_content(text, phrases)
+                    result = smart_rewrite_and_extract(text, phrases, context)
+                    
+                    # Update accumulated context
+                    accumulated_context += " " + text
+                    words = accumulated_context.split()
+                    if len(words) > 500:
+                        accumulated_context = " ".join(words[-500:])
+                    
                     await websocket.send_json({
                         "type": "final",
                         "text": text,
-                        "refined": refined
+                        "refined": result.get("refined"),
+                        "extracted": result.get("extracted", {})
                     })
+            
+            elif action == "clear_context":
+                # Clear accumulated context
+                accumulated_context = ""
+                if session:
+                    session.clear_context()
+                await websocket.send_json({
+                    "type": "status",
+                    "text": "Context cleared"
+                })
                     
             elif action == "ping":
                 # Keep-alive ping
@@ -395,6 +687,7 @@ async def websocket_speech_single(websocket: WebSocket):
     at a time when the client sends a "recognize" action.
     """
     await websocket.accept()
+    accumulated_context = ""
     
     try:
         await websocket.send_json({
@@ -439,11 +732,20 @@ async def websocket_speech_single(websocket: WebSocket):
                 result = recognizer.recognize_once_async().get()
                 
                 if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                    refined = rewrite_content(result.text, phrases)
+                    # Use smart extraction
+                    processed = smart_rewrite_and_extract(result.text, phrases, accumulated_context)
+                    
+                    # Update context
+                    accumulated_context += " " + result.text
+                    words = accumulated_context.split()
+                    if len(words) > 500:
+                        accumulated_context = " ".join(words[-500:])
+                    
                     await websocket.send_json({
                         "type": "final",
                         "text": result.text,
-                        "refined": refined
+                        "refined": processed.get("refined"),
+                        "extracted": processed.get("extracted", {})
                     })
                 elif result.reason == speechsdk.ResultReason.NoMatch:
                     await websocket.send_json({
@@ -456,6 +758,13 @@ async def websocket_speech_single(websocket: WebSocket):
                         "type": "error",
                         "text": f"Recognition canceled: {cancellation.reason}"
                     })
+            
+            elif action == "clear_context":
+                accumulated_context = ""
+                await websocket.send_json({
+                    "type": "status",
+                    "text": "Context cleared"
+                })
                     
             elif action == "ping":
                 await websocket.send_json({"type": "pong"})
@@ -467,7 +776,7 @@ async def websocket_speech_single(websocket: WebSocket):
 
 
 # ============================================================================
-# Run with: uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Run with: uvicorn app:app --reload --host 0.0.0.0 --port 8000
 # ============================================================================
 
 if __name__ == "__main__":
