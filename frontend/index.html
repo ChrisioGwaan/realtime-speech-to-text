@@ -427,6 +427,176 @@
             fill: var(--bg-primary);
         }
 
+        /* Smart Form Section */
+        .smart-form-section {
+            background: var(--bg-elevated);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .smart-form-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .smart-form-title {
+            font-family: 'DM Serif Display', Georgia, serif;
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .smart-form-title svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--accent);
+        }
+
+        .auto-fill-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            animation: glow 2s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .form-input {
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input.has-value {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .form-textarea {
+            min-height: 80px;
+            resize: vertical;
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            padding: 12px 24px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-secondary svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+
+        .btn-primary {
+            padding: 12px 24px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: var(--bg-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--accent-glow);
+        }
+
+        .btn-primary svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--bg-primary);
+        }
+
         /* Results Section */
         .results {
             display: flex;
@@ -913,6 +1083,9 @@
             .main-layout {
                 grid-template-columns: 1fr;
             }
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 640px) {
@@ -1040,6 +1213,72 @@
                         <p class="result-text placeholder" id="refinedText">AI-refined text will appear here...</p>
                     </div>
                 </div>
+
+                <!-- Smart Form Section -->
+                <div class="smart-form-section">
+                    <div class="smart-form-header">
+                        <div class="smart-form-title">
+                            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                            Smart Capture
+                        </div>
+                        <span class="auto-fill-badge" id="autoFillStatus">AI Auto-Fill Active</span>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label class="form-label">Speaker Name</label>
+                            <input type="text" class="form-input" id="formName" placeholder="Detected from speech...">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Topic / Subject</label>
+                            <input type="text" class="form-input" id="formTopic" placeholder="Main topic...">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Category</label>
+                            <select class="form-input form-select" id="formCategory">
+                                <option value="">Select category...</option>
+                                <option value="meeting">Meeting Notes</option>
+                                <option value="interview">Interview</option>
+                                <option value="lecture">Lecture/Presentation</option>
+                                <option value="brainstorm">Brainstorming</option>
+                                <option value="support">Customer Support</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Priority</label>
+                            <select class="form-input form-select" id="formPriority">
+                                <option value="">Select priority...</option>
+                                <option value="high">🔴 High</option>
+                                <option value="medium">🟡 Medium</option>
+                                <option value="low">🟢 Low</option>
+                            </select>
+                        </div>
+                        <div class="form-field full-width">
+                            <label class="form-label">Key Points</label>
+                            <textarea class="form-input form-textarea" id="formKeyPoints" placeholder="Main points extracted from speech..."></textarea>
+                        </div>
+                        <div class="form-field full-width">
+                            <label class="form-label">Action Items</label>
+                            <textarea class="form-input form-textarea" id="formActions" placeholder="Tasks and action items..."></textarea>
+                        </div>
+                        <div class="form-field full-width">
+                            <label class="form-label">Notes / Additional Context</label>
+                            <textarea class="form-input form-textarea" id="formNotes" placeholder="Additional notes..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn-secondary" id="clearFormBtn">
+                            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                            Clear Form
+                        </button>
+                        <button class="btn-primary" id="saveFormBtn">
+                            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                            Download as TXT
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="transcript-section">
@@ -1160,7 +1399,18 @@
             modalOverlay: document.getElementById('modalOverlay'),
             modalContent: document.getElementById('modalContent'),
             modalClose: document.getElementById('modalClose'),
-            modalBody: document.getElementById('modalBody')
+            modalBody: document.getElementById('modalBody'),
+            // Smart Form Elements
+            formName: document.getElementById('formName'),
+            formTopic: document.getElementById('formTopic'),
+            formCategory: document.getElementById('formCategory'),
+            formPriority: document.getElementById('formPriority'),
+            formKeyPoints: document.getElementById('formKeyPoints'),
+            formActions: document.getElementById('formActions'),
+            formNotes: document.getElementById('formNotes'),
+            clearFormBtn: document.getElementById('clearFormBtn'),
+            saveFormBtn: document.getElementById('saveFormBtn'),
+            autoFillStatus: document.getElementById('autoFillStatus')
         };
 
         // =====================================================================
@@ -1173,8 +1423,269 @@
             currentMode: 'speech',
             transcripts: [],
             pingIntervalId: null,
-            reconnectTimeoutId: null
+            reconnectTimeoutId: null,
+            accumulatedText: '' // For smart form analysis
         };
+
+        // =====================================================================
+        // Smart Form Auto-Fill Logic
+        // =====================================================================
+        function analyzeAndFillForm(text, refined) {
+            // Accumulate text for better analysis
+            state.accumulatedText += ' ' + refined;
+            
+            // Pattern matching for various form fields
+            const lowerText = refined.toLowerCase();
+            const lowerAccumulated = state.accumulatedText.toLowerCase();
+            
+            // Detect names (patterns like "my name is X", "this is X speaking", "I'm X")
+            const namePatterns = [
+                /my name is ([A-Z][a-z]+ ?[A-Z]?[a-z]*)/i,
+                /this is ([A-Z][a-z]+ ?[A-Z]?[a-z]*) speaking/i,
+                /i'?m ([A-Z][a-z]+ ?[A-Z]?[a-z]*)/i,
+                /i am ([A-Z][a-z]+ ?[A-Z]?[a-z]*)/i,
+                /([A-Z][a-z]+ ?[A-Z]?[a-z]*) here/i
+            ];
+            
+            for (const pattern of namePatterns) {
+                const match = refined.match(pattern);
+                if (match && match[1] && !elements.formName.value) {
+                    elements.formName.value = match[1].trim();
+                    highlightField(elements.formName);
+                    break;
+                }
+            }
+            
+            // Detect topic (patterns like "discussing X", "about X", "topic is X", "talking about X")
+            const topicPatterns = [
+                /(?:discussing|discuss|talk(?:ing)? about|about|topic is|subject is|regarding|concerning) ([^,.]+)/i,
+                /(?:the|this) (?:meeting|discussion|conversation) (?:is )?(?:about|regarding|on) ([^,.]+)/i
+            ];
+            
+            for (const pattern of topicPatterns) {
+                const match = refined.match(pattern);
+                if (match && match[1] && !elements.formTopic.value) {
+                    elements.formTopic.value = match[1].trim().substring(0, 100);
+                    highlightField(elements.formTopic);
+                    break;
+                }
+            }
+            
+            // Detect category based on keywords
+            if (!elements.formCategory.value) {
+                if (/meeting|agenda|attendee|minute/i.test(lowerAccumulated)) {
+                    elements.formCategory.value = 'meeting';
+                    highlightField(elements.formCategory);
+                } else if (/interview|candidate|position|hire|job/i.test(lowerAccumulated)) {
+                    elements.formCategory.value = 'interview';
+                    highlightField(elements.formCategory);
+                } else if (/lecture|presentation|slide|present/i.test(lowerAccumulated)) {
+                    elements.formCategory.value = 'lecture';
+                    highlightField(elements.formCategory);
+                } else if (/idea|brainstorm|creative|think|what if/i.test(lowerAccumulated)) {
+                    elements.formCategory.value = 'brainstorm';
+                    highlightField(elements.formCategory);
+                } else if (/customer|support|issue|problem|help|ticket/i.test(lowerAccumulated)) {
+                    elements.formCategory.value = 'support';
+                    highlightField(elements.formCategory);
+                }
+            }
+            
+            // Detect priority based on keywords
+            if (!elements.formPriority.value) {
+                if (/urgent|asap|immediately|critical|emergency|high priority/i.test(lowerAccumulated)) {
+                    elements.formPriority.value = 'high';
+                    highlightField(elements.formPriority);
+                } else if (/important|soon|priority|deadline/i.test(lowerAccumulated)) {
+                    elements.formPriority.value = 'medium';
+                    highlightField(elements.formPriority);
+                } else if (/low priority|when you can|no rush|whenever/i.test(lowerAccumulated)) {
+                    elements.formPriority.value = 'low';
+                    highlightField(elements.formPriority);
+                }
+            }
+            
+            // Detect key points (sentences with important keywords)
+            const keyPointPatterns = [
+                /(?:key point|main point|importantly|note that|remember|crucial|essential)[:\s]+([^.!?]+[.!?]?)/gi,
+                /(?:first|second|third|finally|lastly|also|additionally)[,\s]+([^.!?]+[.!?]?)/gi
+            ];
+            
+            let newKeyPoints = [];
+            for (const pattern of keyPointPatterns) {
+                let match;
+                while ((match = pattern.exec(refined)) !== null) {
+                    newKeyPoints.push('• ' + match[1].trim());
+                }
+            }
+            
+            if (newKeyPoints.length > 0) {
+                const existing = elements.formKeyPoints.value;
+                elements.formKeyPoints.value = existing 
+                    ? existing + '\n' + newKeyPoints.join('\n')
+                    : newKeyPoints.join('\n');
+                highlightField(elements.formKeyPoints);
+            }
+            
+            // Detect action items (patterns with action words)
+            const actionPatterns = [
+                /(?:need to|must|should|have to|will|going to|action item|todo|task)[:\s]+([^.!?]+[.!?]?)/gi,
+                /(?:please|kindly) ([^.!?]+[.!?]?)/gi,
+                /(?:make sure|ensure|don't forget|remember to) ([^.!?]+[.!?]?)/gi
+            ];
+            
+            let newActions = [];
+            for (const pattern of actionPatterns) {
+                let match;
+                while ((match = pattern.exec(refined)) !== null) {
+                    newActions.push('☐ ' + match[1].trim());
+                }
+            }
+            
+            if (newActions.length > 0) {
+                const existing = elements.formActions.value;
+                elements.formActions.value = existing 
+                    ? existing + '\n' + newActions.join('\n')
+                    : newActions.join('\n');
+                highlightField(elements.formActions);
+            }
+            
+            // Add to notes if nothing else matched but there's refined text
+            if (refined.length > 20 && newKeyPoints.length === 0 && newActions.length === 0) {
+                // Only add substantial sentences to notes
+                const sentences = refined.match(/[^.!?]+[.!?]+/g);
+                if (sentences && sentences.length > 0) {
+                    for (const sentence of sentences) {
+                        if (sentence.trim().length > 15) {
+                            const existing = elements.formNotes.value;
+                            const newNote = sentence.trim();
+                            if (!existing.includes(newNote)) {
+                                elements.formNotes.value = existing 
+                                    ? existing + '\n' + newNote
+                                    : newNote;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function highlightField(element) {
+            element.classList.add('has-value');
+            element.style.animation = 'none';
+            element.offsetHeight; // Trigger reflow
+            element.style.animation = 'fieldHighlight 0.5s ease';
+        }
+        
+        // Add CSS animation for field highlight
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+            @keyframes fieldHighlight {
+                0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+                50% { box-shadow: 0 0 15px 5px var(--accent-glow); }
+                100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+
+        // =====================================================================
+        // Download Form as TXT
+        // =====================================================================
+        function downloadFormAsTxt() {
+            const timestamp = new Date().toLocaleString();
+            const filename = `voicerefine_${new Date().toISOString().slice(0,10)}_${Date.now()}.txt`;
+            
+            let content = `═══════════════════════════════════════════════════════════════
+                        VOICEREFINE - SPEECH CAPTURE REPORT
+═══════════════════════════════════════════════════════════════
+
+Generated: ${timestamp}
+
+───────────────────────────────────────────────────────────────
+                         FORM DATA
+───────────────────────────────────────────────────────────────
+
+Speaker Name:    ${elements.formName.value || '(Not specified)'}
+Topic/Subject:   ${elements.formTopic.value || '(Not specified)'}
+Category:        ${elements.formCategory.value || '(Not specified)'}
+Priority:        ${elements.formPriority.value || '(Not specified)'}
+
+───────────────────────────────────────────────────────────────
+                        KEY POINTS
+───────────────────────────────────────────────────────────────
+
+${elements.formKeyPoints.value || '(No key points captured)'}
+
+───────────────────────────────────────────────────────────────
+                       ACTION ITEMS
+───────────────────────────────────────────────────────────────
+
+${elements.formActions.value || '(No action items captured)'}
+
+───────────────────────────────────────────────────────────────
+                          NOTES
+───────────────────────────────────────────────────────────────
+
+${elements.formNotes.value || '(No additional notes)'}
+
+───────────────────────────────────────────────────────────────
+                    TRANSCRIPT HISTORY
+───────────────────────────────────────────────────────────────
+
+`;
+            
+            if (state.transcripts.length > 0) {
+                state.transcripts.forEach((t, index) => {
+                    content += `[${t.time}]\n`;
+                    content += `Original: ${t.raw}\n`;
+                    content += `Refined:  ${t.refined}\n\n`;
+                });
+            } else {
+                content += '(No transcripts recorded)\n';
+            }
+            
+            content += `
+═══════════════════════════════════════════════════════════════
+                      END OF REPORT
+═══════════════════════════════════════════════════════════════
+`;
+            
+            // Create and trigger download
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast('Downloaded as ' + filename);
+        }
+        
+        function clearForm() {
+            elements.formName.value = '';
+            elements.formTopic.value = '';
+            elements.formCategory.value = '';
+            elements.formPriority.value = '';
+            elements.formKeyPoints.value = '';
+            elements.formActions.value = '';
+            elements.formNotes.value = '';
+            state.accumulatedText = '';
+            
+            // Remove highlight classes
+            document.querySelectorAll('.form-input').forEach(el => {
+                el.classList.remove('has-value');
+            });
+            
+            // Clear server-side context as well
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify({ action: 'clear_context' }));
+            }
+            
+            showToast('Form and context cleared');
+        }
 
         // =====================================================================
         // WebSocket Connection
@@ -1294,6 +1805,14 @@
                     if (data.refined) {
                         updateRefinedText(data.refined);
                         addTranscriptEntry(data.text, data.refined);
+                        
+                        // Use AI-extracted data if available, fallback to client-side analysis
+                        if (data.extracted && Object.keys(data.extracted).length > 0) {
+                            applyExtractedData(data.extracted);
+                        } else {
+                            // Fallback to client-side regex analysis
+                            analyzeAndFillForm(data.text, data.refined);
+                        }
                     }
                     break;
                     
@@ -1308,6 +1827,86 @@
                 case 'pong':
                     // Ping response - connection is alive
                     break;
+            }
+        }
+        
+        // =====================================================================
+        // Apply AI-Extracted Data to Form
+        // =====================================================================
+        function applyExtractedData(extracted) {
+            console.log('Applying AI-extracted data:', extracted);
+            
+            // Speaker Name
+            if (extracted.speaker_name && !elements.formName.value) {
+                elements.formName.value = extracted.speaker_name;
+                highlightField(elements.formName);
+            }
+            
+            // Topic
+            if (extracted.topic && !elements.formTopic.value) {
+                elements.formTopic.value = extracted.topic;
+                highlightField(elements.formTopic);
+            }
+            
+            // Category
+            if (extracted.category && !elements.formCategory.value) {
+                const validCategories = ['meeting', 'interview', 'lecture', 'brainstorm', 'support', 'personal', 'technical', 'other'];
+                if (validCategories.includes(extracted.category.toLowerCase())) {
+                    elements.formCategory.value = extracted.category.toLowerCase();
+                    highlightField(elements.formCategory);
+                }
+            }
+            
+            // Priority
+            if (extracted.priority && !elements.formPriority.value) {
+                const validPriorities = ['high', 'medium', 'low'];
+                if (validPriorities.includes(extracted.priority.toLowerCase())) {
+                    elements.formPriority.value = extracted.priority.toLowerCase();
+                    highlightField(elements.formPriority);
+                }
+            }
+            
+            // Key Points (append new ones)
+            if (extracted.key_points && Array.isArray(extracted.key_points) && extracted.key_points.length > 0) {
+                const existingPoints = elements.formKeyPoints.value;
+                const newPoints = extracted.key_points
+                    .filter(point => point && !existingPoints.includes(point))
+                    .map(point => '• ' + point.trim())
+                    .join('\n');
+                
+                if (newPoints) {
+                    elements.formKeyPoints.value = existingPoints 
+                        ? existingPoints + '\n' + newPoints 
+                        : newPoints;
+                    highlightField(elements.formKeyPoints);
+                }
+            }
+            
+            // Action Items (append new ones)
+            if (extracted.action_items && Array.isArray(extracted.action_items) && extracted.action_items.length > 0) {
+                const existingActions = elements.formActions.value;
+                const newActions = extracted.action_items
+                    .filter(action => action && !existingActions.includes(action))
+                    .map(action => '☐ ' + action.trim())
+                    .join('\n');
+                
+                if (newActions) {
+                    elements.formActions.value = existingActions 
+                        ? existingActions + '\n' + newActions 
+                        : newActions;
+                    highlightField(elements.formActions);
+                }
+            }
+            
+            // Notes (append if new)
+            if (extracted.notes) {
+                const existingNotes = elements.formNotes.value;
+                if (!existingNotes.includes(extracted.notes)) {
+                    elements.formNotes.value = existingNotes 
+                        ? existingNotes + '\n' + extracted.notes 
+                        : extracted.notes;
+                    highlightField(elements.formNotes);
+                }
             }
         }
 
@@ -1334,6 +1933,9 @@
                 elements.micLabel.classList.add('active');
                 elements.micLabel.textContent = 'Listening...';
                 elements.waveform.classList.add('active');
+                elements.autoFillStatus.textContent = 'AI Analyzing...';
+                elements.autoFillStatus.style.background = 'var(--accent)';
+                elements.autoFillStatus.style.color = 'var(--bg-primary)';
             } else {
                 // Stop recognition
                 state.ws.send(JSON.stringify({ action: 'stop' }));
@@ -1342,6 +1944,9 @@
                 elements.micLabel.classList.remove('active');
                 elements.micLabel.textContent = 'Click to start listening';
                 elements.waveform.classList.remove('active');
+                elements.autoFillStatus.textContent = 'AI Auto-Fill Active';
+                elements.autoFillStatus.style.background = '';
+                elements.autoFillStatus.style.color = '';
             }
         }
 
@@ -1611,6 +2216,10 @@
                     copyToClipboard(btn.dataset.target);
                 });
             });
+            
+            // Smart Form buttons
+            elements.clearFormBtn.addEventListener('click', clearForm);
+            elements.saveFormBtn.addEventListener('click', downloadFormAsTxt);
             
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
