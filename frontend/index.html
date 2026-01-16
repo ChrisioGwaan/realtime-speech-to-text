@@ -319,6 +319,111 @@
             color: var(--accent);
         }
 
+        /* Audio Summary Card */
+        .summary-card {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--bg-elevated) 100%);
+            border: 1px solid var(--accent);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+
+        .summary-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .summary-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent);
+        }
+
+        .summary-title svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--accent);
+        }
+
+        .summary-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .summary-status.analyzing .status-dot {
+            background: var(--accent);
+            animation: pulse-dot 1s ease-in-out infinite;
+        }
+
+        .summary-status.analyzing .status-text {
+            color: var(--accent);
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        .summary-content {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            min-height: 60px;
+            transition: all 0.3s ease;
+        }
+
+        .summary-placeholder {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .summary-content.updating {
+            opacity: 0.7;
+        }
+
+        .summary-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .meta-item {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
         /* Waveform */
         .waveform {
             display: flex;
@@ -427,25 +532,26 @@
             fill: var(--bg-primary);
         }
 
-        /* Smart Form Section */
+        /* Smart Form Section - Right Panel */
         .smart-form-section {
-            background: var(--bg-elevated);
-            border-radius: 16px;
-            padding: 24px;
-            margin-top: 24px;
+            background: var(--bg-secondary);
             border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
         }
 
         .smart-form-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .smart-form-title {
             font-family: 'DM Serif Display', Georgia, serif;
-            font-size: 1.25rem;
+            font-size: 1.5rem;
             color: var(--text-primary);
             display: flex;
             align-items: center;
@@ -501,7 +607,7 @@
 
         .form-input {
             padding: 12px 16px;
-            background: var(--bg-secondary);
+            background: var(--bg-elevated);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--text-primary);
@@ -693,14 +799,26 @@
             opacity: 0.7;
         }
 
-        /* Transcript Section */
-        .transcript-section {
-            background: var(--bg-secondary);
+        /* Transcript Section - Inline (below raw input) */
+        .transcript-section-inline {
+            background: var(--bg-elevated);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 24px;
             border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 32px;
+        }
+
+        .transcript-section-inline .section-header {
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .transcript-section-inline .section-title {
+            font-family: 'DM Serif Display', Georgia, serif;
+            font-size: 1.25rem;
+            font-weight: 400;
         }
 
         .section-header {
@@ -755,12 +873,12 @@
 
         .transcript-log {
             flex: 1;
-            min-height: 200px;
-            max-height: none;
+            min-height: 150px;
+            max-height: 300px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
         }
 
         .transcript-log::-webkit-scrollbar {
@@ -778,9 +896,9 @@
         }
 
         .transcript-entry {
-            padding: 20px;
-            background: var(--bg-elevated);
-            border-radius: 12px;
+            padding: 16px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
             border-left: 3px solid var(--accent);
             animation: slideIn 0.3s ease;
         }
@@ -799,34 +917,26 @@
         .entry-time {
             font-size: 0.75rem;
             color: var(--text-muted);
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .entry-raw {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            text-decoration: line-through;
-            opacity: 0.7;
-        }
-
-        .entry-refined {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-primary);
-            font-weight: 500;
+            line-height: 1.5;
         }
 
         .empty-state {
             text-align: center;
-            padding: 48px;
+            padding: 32px;
             color: var(--text-muted);
         }
 
         .empty-state svg {
-            width: 48px;
-            height: 48px;
+            width: 40px;
+            height: 40px;
             fill: var(--text-muted);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             opacity: 0.5;
         }
 
@@ -1185,118 +1295,127 @@
                     </button>
                 </div>
 
+                <!-- Audio Summary Card -->
+                <div class="summary-card">
+                    <div class="summary-header">
+                        <div class="summary-title">
+                            <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                            Live Summary
+                        </div>
+                        <div class="summary-status" id="summaryStatus">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Waiting for speech...</span>
+                        </div>
+                    </div>
+                    <div class="summary-content" id="summaryContent">
+                        <p class="summary-placeholder">Start speaking to see an AI-generated summary of your conversation in real-time...</p>
+                    </div>
+                    <div class="summary-meta" id="summaryMeta">
+                        <span class="meta-item" id="wordCount">0 words</span>
+                        <span class="meta-item" id="updateTime">--</span>
+                    </div>
+                </div>
+
                 <div class="results">
                     <div class="result-block">
                         <div class="result-header">
                             <div class="result-header-left">
                                 <div class="result-badge raw"></div>
-                                <span class="result-label raw">Raw Input</span>
+                                <span class="result-label raw">Live Transcription</span>
                             </div>
                             <button class="copy-btn" data-target="rawText" title="Copy to clipboard">
                                 <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
                                 Copy
                             </button>
                         </div>
-                        <p class="result-text placeholder" id="rawText">Your input will appear here...</p>
-                    </div>
-                    <div class="result-block">
-                        <div class="result-header">
-                            <div class="result-header-left">
-                                <div class="result-badge refined"></div>
-                                <span class="result-label refined">Refined Output</span>
-                            </div>
-                            <button class="copy-btn" data-target="refinedText" title="Copy to clipboard">
-                                <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-                                Copy
-                            </button>
-                        </div>
-                        <p class="result-text placeholder" id="refinedText">AI-refined text will appear here...</p>
+                        <p class="result-text placeholder" id="rawText">Your speech will appear here...</p>
                     </div>
                 </div>
 
-                <!-- Smart Form Section -->
-                <div class="smart-form-section">
-                    <div class="smart-form-header">
-                        <div class="smart-form-title">
-                            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-                            Smart Capture
-                        </div>
-                        <span class="auto-fill-badge" id="autoFillStatus">AI Auto-Fill Active</span>
-                    </div>
-                    
-                    <div class="form-grid">
-                        <div class="form-field">
-                            <label class="form-label">Speaker Name</label>
-                            <input type="text" class="form-input" id="formName" placeholder="Detected from speech...">
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label">Topic / Subject</label>
-                            <input type="text" class="form-input" id="formTopic" placeholder="Main topic...">
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label">Category</label>
-                            <select class="form-input form-select" id="formCategory">
-                                <option value="">Select category...</option>
-                                <option value="meeting">Meeting Notes</option>
-                                <option value="interview">Interview</option>
-                                <option value="lecture">Lecture/Presentation</option>
-                                <option value="brainstorm">Brainstorming</option>
-                                <option value="support">Customer Support</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label class="form-label">Priority</label>
-                            <select class="form-input form-select" id="formPriority">
-                                <option value="">Select priority...</option>
-                                <option value="high">🔴 High</option>
-                                <option value="medium">🟡 Medium</option>
-                                <option value="low">🟢 Low</option>
-                            </select>
-                        </div>
-                        <div class="form-field full-width">
-                            <label class="form-label">Key Points</label>
-                            <textarea class="form-input form-textarea" id="formKeyPoints" placeholder="Main points extracted from speech..."></textarea>
-                        </div>
-                        <div class="form-field full-width">
-                            <label class="form-label">Action Items</label>
-                            <textarea class="form-input form-textarea" id="formActions" placeholder="Tasks and action items..."></textarea>
-                        </div>
-                        <div class="form-field full-width">
-                            <label class="form-label">Notes / Additional Context</label>
-                            <textarea class="form-input form-textarea" id="formNotes" placeholder="Additional notes..."></textarea>
+                <!-- Transcript History (moved here) -->
+                <div class="transcript-section-inline">
+                    <div class="section-header">
+                        <h2 class="section-title">Transcript History</h2>
+                        <div class="section-header-buttons">
+                            <button class="fullscreen-btn" id="fullscreenBtn" title="View fullscreen">
+                                <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                                Expand
+                            </button>
+                            <button class="clear-btn" id="clearBtn">Clear All</button>
                         </div>
                     </div>
-
-                    <div class="form-actions">
-                        <button class="btn-secondary" id="clearFormBtn">
-                            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-                            Clear Form
-                        </button>
-                        <button class="btn-primary" id="saveFormBtn">
-                            <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                            Download as TXT
-                        </button>
+                    <div class="transcript-log" id="transcriptLog">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+                            <p>No transcripts yet. Start speaking or type text to see results.</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="transcript-section">
-                <div class="section-header">
-                    <h2 class="section-title">Transcript History</h2>
-                    <div class="section-header-buttons">
-                        <button class="fullscreen-btn" id="fullscreenBtn" title="View fullscreen">
-                            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
-                            Expand
-                        </button>
-                        <button class="clear-btn" id="clearBtn">Clear All</button>
+            <!-- Smart Capture Form (right side) -->
+            <div class="smart-form-section">
+                <div class="smart-form-header">
+                    <div class="smart-form-title">
+                        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                        Smart Capture
+                    </div>
+                    <span class="auto-fill-badge" id="autoFillStatus">AI Auto-Fill Active</span>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label class="form-label">Speaker Name</label>
+                        <input type="text" class="form-input" id="formName" placeholder="Detected from speech...">
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Topic / Subject</label>
+                        <input type="text" class="form-input" id="formTopic" placeholder="Main topic...">
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Category</label>
+                        <select class="form-input form-select" id="formCategory">
+                            <option value="">Select category...</option>
+                            <option value="meeting">Meeting Notes</option>
+                            <option value="interview">Interview</option>
+                            <option value="lecture">Lecture/Presentation</option>
+                            <option value="brainstorm">Brainstorming</option>
+                            <option value="support">Customer Support</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label">Priority</label>
+                        <select class="form-input form-select" id="formPriority">
+                            <option value="">Select priority...</option>
+                            <option value="high">🔴 High</option>
+                            <option value="medium">🟡 Medium</option>
+                            <option value="low">🟢 Low</option>
+                        </select>
+                    </div>
+                    <div class="form-field full-width">
+                        <label class="form-label">Key Points</label>
+                        <textarea class="form-input form-textarea" id="formKeyPoints" placeholder="Main points extracted from speech..."></textarea>
+                    </div>
+                    <div class="form-field full-width">
+                        <label class="form-label">Action Items</label>
+                        <textarea class="form-input form-textarea" id="formActions" placeholder="Tasks and action items..."></textarea>
+                    </div>
+                    <div class="form-field full-width">
+                        <label class="form-label">Notes / Additional Context</label>
+                        <textarea class="form-input form-textarea" id="formNotes" placeholder="Additional notes..."></textarea>
                     </div>
                 </div>
-                <div class="transcript-log" id="transcriptLog">
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                        <p>No transcripts yet. Start speaking or type text to see results.</p>
-                    </div>
+
+                <div class="form-actions">
+                    <button class="btn-secondary" id="clearFormBtn">
+                        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                        Clear Form
+                    </button>
+                    <button class="btn-primary" id="saveFormBtn">
+                        <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                        Download as TXT
+                    </button>
                 </div>
             </div>
         </div>
@@ -1374,7 +1493,6 @@
             micLabel: document.getElementById('micLabel'),
             waveform: document.getElementById('waveform'),
             rawText: document.getElementById('rawText'),
-            refinedText: document.getElementById('refinedText'),
             transcriptLog: document.getElementById('transcriptLog'),
             clearBtn: document.getElementById('clearBtn'),
             settingsToggle: document.getElementById('settingsToggle'),
@@ -1400,6 +1518,12 @@
             modalContent: document.getElementById('modalContent'),
             modalClose: document.getElementById('modalClose'),
             modalBody: document.getElementById('modalBody'),
+            // Summary Elements
+            summaryContent: document.getElementById('summaryContent'),
+            summaryStatus: document.getElementById('summaryStatus'),
+            summaryMeta: document.getElementById('summaryMeta'),
+            wordCount: document.getElementById('wordCount'),
+            updateTime: document.getElementById('updateTime'),
             // Smart Form Elements
             formName: document.getElementById('formName'),
             formTopic: document.getElementById('formTopic'),
@@ -1424,18 +1548,186 @@
             transcripts: [],
             pingIntervalId: null,
             reconnectTimeoutId: null,
-            accumulatedText: '' // For smart form analysis
+            accumulatedText: '', // For smart form analysis
+            // Real-time analysis state
+            fullTranscript: '', // Complete transcript for analysis
+            lastAnalyzedText: '', // Track what we've analyzed
+            analysisDebounceTimer: null,
+            streamingAnalysisTimer: null,
+            isAnalyzing: false,
+            currentSummary: '',
+            analysisQueue: [], // Queue of text to analyze
+            lastAnalysisTime: 0
         };
 
         // =====================================================================
-        // Smart Form Auto-Fill Logic
+        // Real-time Analysis Configuration
         // =====================================================================
-        function analyzeAndFillForm(text, refined) {
+        const ANALYSIS_CONFIG = {
+            debounceMs: 1500, // Wait 1.5s after last input before analyzing
+            streamIntervalMs: 3000, // Analyze every 3s while speaking
+            minNewChars: 30, // Minimum new characters before re-analyzing
+            minAnalysisGap: 2000 // Minimum 2s between analysis calls
+        };
+
+        // =====================================================================
+        // Real-time Streaming Analysis System
+        // =====================================================================
+        
+        function updateSummaryStatus(status, text) {
+            const statusEl = elements.summaryStatus;
+            statusEl.className = 'summary-status ' + status;
+            statusEl.querySelector('.status-text').textContent = text;
+        }
+        
+        function updateSummaryContent(summary) {
+            const contentEl = elements.summaryContent;
+            if (summary) {
+                contentEl.innerHTML = `<p>${escapeHtml(summary)}</p>`;
+                contentEl.classList.remove('updating');
+                state.currentSummary = summary;
+            }
+        }
+        
+        function updateSummaryMeta() {
+            const words = state.fullTranscript.trim().split(/\s+/).filter(w => w).length;
+            elements.wordCount.textContent = `${words} words`;
+            elements.updateTime.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        }
+        
+        // Trigger analysis - called on both partial and final results
+        function triggerRealtimeAnalysis(newText, isFinal = false) {
+            // Add to full transcript
+            if (isFinal) {
+                state.fullTranscript += ' ' + newText;
+                state.fullTranscript = state.fullTranscript.trim();
+            }
+            
+            // Clear existing debounce timer
+            if (state.analysisDebounceTimer) {
+                clearTimeout(state.analysisDebounceTimer);
+            }
+            
+            // Check if we have enough new content to analyze
+            const newContentLength = state.fullTranscript.length - state.lastAnalyzedText.length;
+            const timeSinceLastAnalysis = Date.now() - state.lastAnalysisTime;
+            
+            // For partial results, update the display but use lighter analysis
+            if (!isFinal) {
+                // Show live transcription with partial
+                updateRawText(state.fullTranscript + ' ' + newText, true);
+                updateSummaryStatus('analyzing', 'Listening...');
+                
+                // Start streaming analysis timer if not running
+                if (!state.streamingAnalysisTimer && state.isListening) {
+                    startStreamingAnalysis();
+                }
+                return;
+            }
+            
+            // For final results, trigger analysis with debounce
+            updateSummaryStatus('analyzing', 'Analyzing...');
+            elements.summaryContent.classList.add('updating');
+            
+            // Debounce the analysis call
+            state.analysisDebounceTimer = setTimeout(() => {
+                if (newContentLength >= ANALYSIS_CONFIG.minNewChars || 
+                    timeSinceLastAnalysis > ANALYSIS_CONFIG.minAnalysisGap) {
+                    performAnalysis();
+                }
+            }, ANALYSIS_CONFIG.debounceMs);
+        }
+        
+        // Streaming analysis - runs periodically while user is speaking
+        function startStreamingAnalysis() {
+            if (state.streamingAnalysisTimer) return;
+            
+            state.streamingAnalysisTimer = setInterval(() => {
+                if (!state.isListening) {
+                    stopStreamingAnalysis();
+                    return;
+                }
+                
+                const newContentLength = state.fullTranscript.length - state.lastAnalyzedText.length;
+                if (newContentLength >= ANALYSIS_CONFIG.minNewChars && !state.isAnalyzing) {
+                    performAnalysis();
+                }
+            }, ANALYSIS_CONFIG.streamIntervalMs);
+        }
+        
+        function stopStreamingAnalysis() {
+            if (state.streamingAnalysisTimer) {
+                clearInterval(state.streamingAnalysisTimer);
+                state.streamingAnalysisTimer = null;
+            }
+        }
+        
+        // Perform the actual AI analysis
+        function performAnalysis() {
+            if (state.isAnalyzing || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            
+            if (!state.fullTranscript.trim()) {
+                return;
+            }
+            
+            state.isAnalyzing = true;
+            state.lastAnalysisTime = Date.now();
+            updateSummaryStatus('analyzing', 'AI analyzing...');
+            elements.autoFillStatus.textContent = 'AI Processing...';
+            elements.autoFillStatus.style.background = 'var(--accent)';
+            elements.autoFillStatus.style.color = 'var(--bg-primary)';
+            
+            // Send analysis request
+            state.ws.send(JSON.stringify({
+                action: 'analyze',
+                text: state.fullTranscript,
+                previous_summary: state.currentSummary,
+                relevant_phrases: elements.phrasesInput.value || ''
+            }));
+            
+            state.lastAnalyzedText = state.fullTranscript;
+        }
+        
+        // Handle analysis response from server
+        function handleAnalysisResponse(data) {
+            state.isAnalyzing = false;
+            
+            // Update summary
+            if (data.summary) {
+                updateSummaryContent(data.summary);
+            }
+            
+            // Update form fields
+            if (data.extracted) {
+                applyExtractedData(data.extracted);
+            }
+            
+            // Update meta info
+            updateSummaryMeta();
+            
+            // Update status
+            if (state.isListening) {
+                updateSummaryStatus('analyzing', 'Listening...');
+            } else {
+                updateSummaryStatus('', 'Analysis complete');
+            }
+            
+            elements.autoFillStatus.textContent = 'AI Auto-Fill Active';
+            elements.autoFillStatus.style.background = '';
+            elements.autoFillStatus.style.color = '';
+        }
+        
+        // =====================================================================
+        // Smart Form Auto-Fill Logic (Client-side fallback)
+        // =====================================================================
+        function analyzeAndFillForm(text) {
             // Accumulate text for better analysis
-            state.accumulatedText += ' ' + refined;
+            state.accumulatedText += ' ' + text;
             
             // Pattern matching for various form fields
-            const lowerText = refined.toLowerCase();
+            const lowerText = text.toLowerCase();
             const lowerAccumulated = state.accumulatedText.toLowerCase();
             
             // Detect names (patterns like "my name is X", "this is X speaking", "I'm X")
@@ -1448,7 +1740,7 @@
             ];
             
             for (const pattern of namePatterns) {
-                const match = refined.match(pattern);
+                const match = text.match(pattern);
                 if (match && match[1] && !elements.formName.value) {
                     elements.formName.value = match[1].trim();
                     highlightField(elements.formName);
@@ -1463,7 +1755,7 @@
             ];
             
             for (const pattern of topicPatterns) {
-                const match = refined.match(pattern);
+                const match = text.match(pattern);
                 if (match && match[1] && !elements.formTopic.value) {
                     elements.formTopic.value = match[1].trim().substring(0, 100);
                     highlightField(elements.formTopic);
@@ -1514,7 +1806,7 @@
             let newKeyPoints = [];
             for (const pattern of keyPointPatterns) {
                 let match;
-                while ((match = pattern.exec(refined)) !== null) {
+                while ((match = pattern.exec(text)) !== null) {
                     newKeyPoints.push('• ' + match[1].trim());
                 }
             }
@@ -1537,7 +1829,7 @@
             let newActions = [];
             for (const pattern of actionPatterns) {
                 let match;
-                while ((match = pattern.exec(refined)) !== null) {
+                while ((match = pattern.exec(text)) !== null) {
                     newActions.push('☐ ' + match[1].trim());
                 }
             }
@@ -1548,25 +1840,6 @@
                     ? existing + '\n' + newActions.join('\n')
                     : newActions.join('\n');
                 highlightField(elements.formActions);
-            }
-            
-            // Add to notes if nothing else matched but there's refined text
-            if (refined.length > 20 && newKeyPoints.length === 0 && newActions.length === 0) {
-                // Only add substantial sentences to notes
-                const sentences = refined.match(/[^.!?]+[.!?]+/g);
-                if (sentences && sentences.length > 0) {
-                    for (const sentence of sentences) {
-                        if (sentence.trim().length > 15) {
-                            const existing = elements.formNotes.value;
-                            const newNote = sentence.trim();
-                            if (!existing.includes(newNote)) {
-                                elements.formNotes.value = existing 
-                                    ? existing + '\n' + newNote
-                                    : newNote;
-                            }
-                        }
-                    }
-                }
             }
         }
         
@@ -1602,6 +1875,12 @@
 Generated: ${timestamp}
 
 ───────────────────────────────────────────────────────────────
+                        AI SUMMARY
+───────────────────────────────────────────────────────────────
+
+${state.currentSummary || '(No summary generated)'}
+
+───────────────────────────────────────────────────────────────
                          FORM DATA
 ───────────────────────────────────────────────────────────────
 
@@ -1629,6 +1908,12 @@ ${elements.formActions.value || '(No action items captured)'}
 ${elements.formNotes.value || '(No additional notes)'}
 
 ───────────────────────────────────────────────────────────────
+                    FULL TRANSCRIPT
+───────────────────────────────────────────────────────────────
+
+${state.fullTranscript || '(No transcript recorded)'}
+
+───────────────────────────────────────────────────────────────
                     TRANSCRIPT HISTORY
 ───────────────────────────────────────────────────────────────
 
@@ -1636,9 +1921,7 @@ ${elements.formNotes.value || '(No additional notes)'}
             
             if (state.transcripts.length > 0) {
                 state.transcripts.forEach((t, index) => {
-                    content += `[${t.time}]\n`;
-                    content += `Original: ${t.raw}\n`;
-                    content += `Refined:  ${t.refined}\n\n`;
+                    content += `[${t.time}] ${t.text}\n\n`;
                 });
             } else {
                 content += '(No transcripts recorded)\n';
@@ -1673,6 +1956,22 @@ ${elements.formNotes.value || '(No additional notes)'}
             elements.formActions.value = '';
             elements.formNotes.value = '';
             state.accumulatedText = '';
+            
+            // Reset analysis state
+            state.fullTranscript = '';
+            state.lastAnalyzedText = '';
+            state.currentSummary = '';
+            state.isAnalyzing = false;
+            
+            // Reset summary card
+            elements.summaryContent.innerHTML = '<p class="summary-placeholder">Start speaking to see an AI-generated summary of your conversation in real-time...</p>';
+            updateSummaryStatus('', 'Waiting for speech...');
+            elements.wordCount.textContent = '0 words';
+            elements.updateTime.textContent = '--';
+            
+            // Reset raw text
+            elements.rawText.textContent = 'Your speech will appear here...';
+            elements.rawText.classList.add('placeholder');
             
             // Remove highlight classes
             document.querySelectorAll('.form-input').forEach(el => {
@@ -1797,23 +2096,26 @@ ${elements.formNotes.value || '(No additional notes)'}
             
             switch (data.type) {
                 case 'partial':
-                    updateRawText(data.text, true);
+                    // Real-time partial results - trigger streaming analysis
+                    updateRawText(state.fullTranscript + (state.fullTranscript ? ' ' : '') + data.text, true);
+                    triggerRealtimeAnalysis(data.text, false);
                     break;
                     
                 case 'final':
-                    updateRawText(data.text, false);
-                    if (data.refined) {
-                        updateRefinedText(data.refined);
-                        addTranscriptEntry(data.text, data.refined);
-                        
-                        // Use AI-extracted data if available, fallback to client-side analysis
-                        if (data.extracted && Object.keys(data.extracted).length > 0) {
-                            applyExtractedData(data.extracted);
-                        } else {
-                            // Fallback to client-side regex analysis
-                            analyzeAndFillForm(data.text, data.refined);
-                        }
+                    // Final result - update transcript and trigger analysis
+                    updateRawText(state.fullTranscript + (state.fullTranscript ? ' ' : '') + data.text, false);
+                    addTranscriptEntry(data.text);
+                    triggerRealtimeAnalysis(data.text, true);
+                    
+                    // Also apply any extracted data from this message
+                    if (data.extracted && Object.keys(data.extracted).length > 0) {
+                        applyExtractedData(data.extracted);
                     }
+                    break;
+                    
+                case 'analysis':
+                    // AI analysis response
+                    handleAnalysisResponse(data);
                     break;
                     
                 case 'status':
@@ -1822,6 +2124,7 @@ ${elements.formNotes.value || '(No additional notes)'}
                     
                 case 'error':
                     showToast(data.text, true);
+                    state.isAnalyzing = false;
                     break;
                     
                 case 'pong':
@@ -1933,9 +2236,13 @@ ${elements.formNotes.value || '(No additional notes)'}
                 elements.micLabel.classList.add('active');
                 elements.micLabel.textContent = 'Listening...';
                 elements.waveform.classList.add('active');
-                elements.autoFillStatus.textContent = 'AI Analyzing...';
+                elements.autoFillStatus.textContent = 'AI Listening...';
                 elements.autoFillStatus.style.background = 'var(--accent)';
                 elements.autoFillStatus.style.color = 'var(--bg-primary)';
+                updateSummaryStatus('analyzing', 'Listening...');
+                
+                // Start streaming analysis
+                startStreamingAnalysis();
             } else {
                 // Stop recognition
                 state.ws.send(JSON.stringify({ action: 'stop' }));
@@ -1947,11 +2254,21 @@ ${elements.formNotes.value || '(No additional notes)'}
                 elements.autoFillStatus.textContent = 'AI Auto-Fill Active';
                 elements.autoFillStatus.style.background = '';
                 elements.autoFillStatus.style.color = '';
+                
+                // Stop streaming analysis
+                stopStreamingAnalysis();
+                
+                // Trigger final analysis if we have content
+                if (state.fullTranscript.trim()) {
+                    performAnalysis();
+                } else {
+                    updateSummaryStatus('', 'Waiting for speech...');
+                }
             }
         }
 
         // =====================================================================
-        // Text Refinement (Text Mode)
+        // Text Processing (Text Mode)
         // =====================================================================
         async function refineTextInput() {
             const text = elements.textInput.value.trim();
@@ -1967,9 +2284,8 @@ ${elements.formNotes.value || '(No additional notes)'}
             
             elements.refineBtn.disabled = true;
             updateRawText(text, false);
-            updateRefinedText('Processing...', true);
             
-            // Send refine request via WebSocket
+            // Send process request via WebSocket
             state.ws.send(JSON.stringify({
                 action: 'refine',
                 text: text,
@@ -1988,13 +2304,7 @@ ${elements.formNotes.value || '(No additional notes)'}
             elements.rawText.classList.toggle('partial', isPartial);
         }
 
-        function updateRefinedText(text, isProcessing = false) {
-            elements.refinedText.textContent = text;
-            elements.refinedText.classList.remove('placeholder');
-            elements.refinedText.style.opacity = isProcessing ? '0.7' : '1';
-        }
-
-        function addTranscriptEntry(raw, refined) {
+        function addTranscriptEntry(text) {
             // Remove empty state if exists
             const emptyState = elements.transcriptLog.querySelector('.empty-state');
             if (emptyState) {
@@ -2012,26 +2322,34 @@ ${elements.formNotes.value || '(No additional notes)'}
             
             entry.innerHTML = `
                 <div class="entry-time">${time}</div>
-                <div class="entry-raw">${escapeHtml(raw)}</div>
-                <div class="entry-refined">${escapeHtml(refined)}</div>
+                <div class="entry-raw">${escapeHtml(text)}</div>
             `;
             
             elements.transcriptLog.insertBefore(entry, elements.transcriptLog.firstChild);
-            state.transcripts.push({ raw, refined, time });
+            state.transcripts.push({ text, time });
         }
 
         function clearTranscripts() {
             state.transcripts = [];
+            state.fullTranscript = '';
+            state.lastAnalyzedText = '';
+            state.currentSummary = '';
+            
             elements.transcriptLog.innerHTML = `
                 <div class="empty-state">
                     <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
                     <p>No transcripts yet. Start speaking or type text to see results.</p>
                 </div>
             `;
-            elements.rawText.textContent = 'Your input will appear here...';
+            elements.rawText.textContent = 'Your speech will appear here...';
             elements.rawText.classList.add('placeholder');
-            elements.refinedText.textContent = 'AI-refined text will appear here...';
-            elements.refinedText.classList.add('placeholder');
+            
+            // Reset summary
+            elements.summaryContent.innerHTML = '<p class="summary-placeholder">Start speaking to see an AI-generated summary of your conversation in real-time...</p>';
+            updateSummaryStatus('', 'Waiting for speech...');
+            elements.wordCount.textContent = '0 words';
+            elements.updateTime.textContent = '--';
+            
             showToast('Transcripts cleared');
         }
 
@@ -2156,8 +2474,7 @@ ${elements.formNotes.value || '(No additional notes)'}
                     .map(t => `
                         <div class="transcript-entry">
                             <div class="entry-time">${t.time}</div>
-                            <div class="entry-raw">${escapeHtml(t.raw)}</div>
-                            <div class="entry-refined">${escapeHtml(t.refined)}</div>
+                            <div class="entry-raw">${escapeHtml(t.text)}</div>
                         </div>
                     `).join('');
             }
