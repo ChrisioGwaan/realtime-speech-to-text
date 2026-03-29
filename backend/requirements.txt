@@ -14,7 +14,7 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.11
-jiter==0.12.0
+jiter==0.13.0
 openai==2.15.0
 pipreqs==0.4.13
 pydantic==2.12.5
