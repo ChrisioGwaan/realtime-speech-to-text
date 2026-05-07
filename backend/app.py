@@ -493,11 +493,12 @@ class SpeechRecognitionSession:
 
 
 @app.websocket("/ws/speech")
-async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
+async def websocket_speech(websocket: WebSocket):
     """
     WebSocket endpoint for real-time speech recognition with smart extraction.
     
-    Client messages:
+    Client messages (first message must be auth):
+    - {"action": "auth", "token": "..."}
     - {"action": "start", "language": "en-US", "relevant_phrases": "..."}
     - {"action": "stop"}
     - {"action": "process", "text": "...", "context": "..."}
@@ -517,8 +518,9 @@ async def websocket_speech(websocket: WebSocket, token: str = Query(...)):
     current_summary = ""  # Track current summary
     
     try:
-        # Verify token
-        if not ACCESS_TOKEN or token != ACCESS_TOKEN:
+        # First message must be auth
+        auth_data = await websocket.receive_json()
+        if auth_data.get("action") != "auth" or not ACCESS_TOKEN or auth_data.get("token") != ACCESS_TOKEN:
             await websocket.send_json({
                 "type": "error",
                 "text": "Invalid or missing token"
@@ -643,11 +645,22 @@ async def websocket_speech_single(websocket: WebSocket):
     
     This is simpler than continuous recognition - it recognizes one phrase
     at a time when the client sends a "recognize" action.
+    First message must be: {"action": "auth", "token": "..."}
     """
     await websocket.accept()
     accumulated_context = ""
     
     try:
+        # First message must be auth
+        auth_data = await websocket.receive_json()
+        if auth_data.get("action") != "auth" or not ACCESS_TOKEN or auth_data.get("token") != ACCESS_TOKEN:
+            await websocket.send_json({
+                "type": "error",
+                "text": "Invalid or missing token"
+            })
+            await websocket.close()
+            return
+
         await websocket.send_json({
             "type": "status",
             "text": "Connected - send 'recognize' to start"

@@ -1992,32 +1992,50 @@ ${state.fullTranscript || '(No transcript recorded)'}
         function connect() {
             const baseUrl = elements.serverUrl.value || CONFIG.wsUrl;
             const token = elements.accessToken.value.trim();
-            const wsUrl = token ? `${baseUrl}?token=${encodeURIComponent(token)}` : baseUrl;
             
             updateConnectionStatus('connecting');
             
             try {
-                state.ws = new WebSocket(wsUrl);
+                state.ws = new WebSocket(baseUrl);
                 
                 state.ws.onopen = () => {
                     console.log('WebSocket connected');
-                    state.isConnected = true;
-                    updateConnectionStatus('connected');
-                    elements.micButton.disabled = false;
-                    elements.refineBtn.disabled = false;
-                    elements.micLabel.textContent = 'Click to start listening';
-                    
-                    // Start ping interval
-                    state.pingIntervalId = setInterval(() => {
-                        if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-                            state.ws.send(JSON.stringify({ action: 'ping' }));
+
+                    // Send auth as first message — keeps the token out of URLs and server logs
+                    state.ws.send(JSON.stringify({ action: 'auth', token }));
+
+                    state.ws.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'error' && !state.isConnected) {
+                            // Auth failed
+                            showToast('Authentication failed — check your access token', true);
+                            state.ws.close();
+                            return;
                         }
-                    }, CONFIG.pingInterval);
-                };
-                
-                state.ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    handleServerMessage(data);
+                        if (data.type === 'status' && !state.isConnected) {
+                            // Auth succeeded
+                            state.isConnected = true;
+                            updateConnectionStatus('connected');
+                            elements.micButton.disabled = false;
+                            elements.refineBtn.disabled = false;
+                            elements.micLabel.textContent = 'Click to start listening';
+
+                            // Start ping interval
+                            state.pingIntervalId = setInterval(() => {
+                                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                                    state.ws.send(JSON.stringify({ action: 'ping' }));
+                                }
+                            }, CONFIG.pingInterval);
+
+                            // Switch to normal message handler
+                            state.ws.onmessage = (event) => {
+                                const data = JSON.parse(event.data);
+                                handleServerMessage(data);
+                            };
+                            return;
+                        }
+                        handleServerMessage(data);
+                    };
                 };
                 
                 state.ws.onerror = (error) => {
