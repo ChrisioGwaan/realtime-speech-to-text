@@ -4,6 +4,8 @@
 
 VoiceRefine is an open-source demo that transcribes your microphone live, generates a running summary, and auto-fills structured fields — speaker, topic, key points, action items, and more — as you speak. You bring your own Azure credentials and run everything locally. Nothing is stored anywhere — no database, no server logs of your content, no cloud relay.
 
+> 📖 **For students and educators:** See [LEARN.md](LEARN.md) for a concept-by-concept walkthrough of how this project works, why each design decision was made, and exercises to extend it.
+
 > ⚠️ **Security reminder — please read before you start**
 >
 > Your `.env` file contains API keys that grant direct access to your Azure account and will incur costs if misused. **Never commit `.env` to Git, never share it publicly, and never paste your keys into chat or forums.** Add `.env` to your `.gitignore` before doing anything else.
