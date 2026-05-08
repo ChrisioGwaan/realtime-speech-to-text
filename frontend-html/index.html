@@ -1126,6 +1126,27 @@
             color: var(--text-muted);
         }
 
+        select.setting-input {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2394a3b8' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+            cursor: pointer;
+        }
+
+        .setting-hint {
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: 'IBM Plex Sans', sans-serif;
+        }
+
+        .setting-hint.error {
+            color: var(--error);
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -1442,6 +1463,14 @@
                     <label class="setting-label">Language</label>
                     <input type="text" class="setting-input" id="languageInput" placeholder="en-US" value="en-US">
                 </div>
+                <div class="setting-item">
+                    <label class="setting-label">Speech Provider</label>
+                    <select class="setting-input" id="providerSelect">
+                        <option value="azure">Azure Speech Services</option>
+                        <option value="openai">OpenAI Platform (Realtime)</option>
+                    </select>
+                    <div class="setting-hint" id="providerHint">Loading available providers…</div>
+                </div>
                 <button class="refine-btn" id="reconnectBtn" style="margin-top: 8px;">
                     Reconnect
                 </button>
@@ -1501,6 +1530,8 @@
             languageInput: document.getElementById('languageInput'),
             serverUrl: document.getElementById('serverUrl'),
             accessToken: document.getElementById('accessToken'),
+            providerSelect: document.getElementById('providerSelect'),
+            providerHint: document.getElementById('providerHint'),
             reconnectBtn: document.getElementById('reconnectBtn'),
             toast: document.getElementById('toast'),
             toastMessage: document.getElementById('toastMessage'),
@@ -1638,16 +1669,24 @@
             }, ANALYSIS_CONFIG.debounceMs);
         }
         
+        // True when the realtime model itself is producing analysis events
+        // (provider="openai"). In that mode we suppress client-driven polling
+        // because the backend pushes "analysis" events automatically.
+        function isPushAnalysisProvider() {
+            return (elements.providerSelect && elements.providerSelect.value) === 'openai';
+        }
+
         // Streaming analysis - runs periodically while user is speaking
         function startStreamingAnalysis() {
             if (state.streamingAnalysisTimer) return;
-            
+            if (isPushAnalysisProvider()) return;  // OpenAI Realtime pushes analysis itself
+
             state.streamingAnalysisTimer = setInterval(() => {
                 if (!state.isListening) {
                     stopStreamingAnalysis();
                     return;
                 }
-                
+
                 const newContentLength = state.fullTranscript.length - state.lastAnalyzedText.length;
                 if (newContentLength >= ANALYSIS_CONFIG.minNewChars && !state.isAnalyzing) {
                     performAnalysis();
@@ -1667,7 +1706,12 @@
             if (state.isAnalyzing || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
                 return;
             }
-            
+
+            // OpenAI Realtime pushes analysis itself — skip client-initiated requests
+            if (isPushAnalysisProvider()) {
+                return;
+            }
+
             if (!state.fullTranscript.trim()) {
                 return;
             }
@@ -1987,13 +2031,71 @@ ${state.fullTranscript || '(No transcript recorded)'}
         }
 
         // =====================================================================
+        // Provider availability — derives http(s) base from ws(s) base and probes /
+        // =====================================================================
+        function deriveHttpBaseFromWs(wsBase) {
+            try {
+                const u = new URL(wsBase);
+                u.protocol = u.protocol === 'wss:' ? 'https:' : 'http:';
+                u.pathname = '/';
+                u.search = '';
+                u.hash = '';
+                return u.toString().replace(/\/$/, '');
+            } catch {
+                return CONFIG.apiUrl;
+            }
+        }
+
+        async function refreshProviderOptions() {
+            const httpBase = deriveHttpBaseFromWs(elements.serverUrl.value || CONFIG.wsUrl);
+            const azureOpt = elements.providerSelect.querySelector('option[value="azure"]');
+            const openaiOpt = elements.providerSelect.querySelector('option[value="openai"]');
+
+            try {
+                const resp = await fetch(httpBase + '/');
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                const data = await resp.json();
+                const azureOk = !!(data.features && data.features.speech_to_text_azure);
+                const openaiOk = !!(data.features && data.features.speech_to_text_openai);
+
+                azureOpt.disabled = !azureOk;
+                azureOpt.textContent = 'Azure Speech Services' + (azureOk ? '' : ' (not configured)');
+                openaiOpt.disabled = !openaiOk;
+                openaiOpt.textContent = 'OpenAI Platform (Realtime)' + (openaiOk ? '' : ' (not configured)');
+
+                // If current selection is unavailable, fall back to the configured one
+                const current = elements.providerSelect.value;
+                if (current === 'azure' && !azureOk && openaiOk) elements.providerSelect.value = 'openai';
+                if (current === 'openai' && !openaiOk && azureOk) elements.providerSelect.value = 'azure';
+
+                if (azureOk && openaiOk) {
+                    elements.providerHint.textContent = 'Both providers configured — pick one.';
+                    elements.providerHint.classList.remove('error');
+                } else if (azureOk) {
+                    elements.providerHint.textContent = 'Only Azure is configured on the server.';
+                    elements.providerHint.classList.remove('error');
+                } else if (openaiOk) {
+                    elements.providerHint.textContent = 'Only OpenAI Platform is configured on the server.';
+                    elements.providerHint.classList.remove('error');
+                } else {
+                    elements.providerHint.textContent = 'No speech provider configured on the server.';
+                    elements.providerHint.classList.add('error');
+                }
+            } catch (e) {
+                elements.providerHint.textContent = 'Could not reach server to detect providers.';
+                elements.providerHint.classList.add('error');
+            }
+        }
+
+        // =====================================================================
         // WebSocket Connection
         // =====================================================================
         function connect() {
             const baseUrl = elements.serverUrl.value || CONFIG.wsUrl;
             const token = elements.accessToken.value.trim();
-            
+
             updateConnectionStatus('connecting');
+            refreshProviderOptions();
             
             try {
                 state.ws = new WebSocket(baseUrl);
@@ -2247,7 +2349,8 @@ ${state.fullTranscript || '(No transcript recorded)'}
                 state.ws.send(JSON.stringify({
                     action: 'start',
                     language: elements.languageInput.value || 'en-US',
-                    relevant_phrases: elements.phrasesInput.value || ''
+                    relevant_phrases: elements.phrasesInput.value || '',
+                    provider: elements.providerSelect.value || 'azure'
                 }));
                 
                 elements.micButton.classList.add('active');
