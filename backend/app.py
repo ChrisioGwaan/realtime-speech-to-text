@@ -1,6 +1,7 @@
 import os
 import json
 import asyncio
+import base64
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
 
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 
 import azure.cognitiveservices.speech as speechsdk
 from openai import AzureOpenAI
+import websockets as ws_client
 
 # Load environment variables
 load_dotenv()
@@ -23,6 +25,11 @@ AZURE_OPENAI_ENDPOINT = os.environ.get('AZURE_OPENAI_ENDPOINT')
 AZURE_OPENAI_API_KEY = os.environ.get('AZURE_OPENAI_API_KEY')
 OPENAI_MODEL = os.environ.get('AZURE_AI_DEPLOYMENT', 'gpt-5.2-chat')
 ACCESS_TOKEN = os.environ.get('ACCESS_TOKEN')  # For API authentication
+
+# OpenAI Realtime API (platform.openai.com — separate from Azure OpenAI)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+OPENAI_REALTIME_MODEL = os.environ.get('OPENAI_REALTIME_MODEL', 'gpt-realtime-2')
+OPENAI_REALTIME_URL = os.environ.get('OPENAI_REALTIME_URL', 'wss://api.openai.com/v1/realtime')
 
 # Default relevant phrases for grammar correction context
 DEFAULT_PHRASES = "Azure Cognitive Services, non-profit organization, speech recognition, OpenAI API"
@@ -89,7 +96,12 @@ async def lifespan(app: FastAPI):
             api_version="2024-12-01-preview"
         )
         print("✅ Azure OpenAI client initialized")
-    
+
+    if OPENAI_API_KEY:
+        print(f"✅ OpenAI Realtime provider available (model: {OPENAI_REALTIME_MODEL})")
+    else:
+        print("ℹ️  OpenAI Realtime provider disabled (set OPENAI_API_KEY to enable)")
+
     print("🚀 VoiceRefine API server started")
     yield
     print("👋 Server shutting down")
@@ -353,7 +365,8 @@ async def root():
         "service": "VoiceRefine API",
         "version": "2.0.0",
         "features": {
-            "speech_to_text": bool(SPEECH_KEY and SPEECH_REGION),
+            "speech_to_text_azure": bool(SPEECH_KEY and SPEECH_REGION),
+            "speech_to_text_openai": bool(OPENAI_API_KEY),
             "smart_extraction": bool(openai_client)
         }
     }
@@ -385,7 +398,13 @@ async def get_config():
         "openai_model": OPENAI_MODEL,
         "speech_configured": bool(SPEECH_KEY),
         "openai_configured": bool(openai_client),
-        "smart_extraction_enabled": bool(openai_client)
+        "smart_extraction_enabled": bool(openai_client),
+        "openai_realtime_configured": bool(OPENAI_API_KEY),
+        "openai_realtime_model": OPENAI_REALTIME_MODEL,
+        "providers": {
+            "azure": bool(SPEECH_KEY and SPEECH_REGION),
+            "openai": bool(OPENAI_API_KEY),
+        }
     }
 
 
@@ -492,6 +511,278 @@ class SpeechRecognitionSession:
         self.accumulated_context = ""
 
 
+class OpenAIRealtimeSession:
+    """
+    Manages an OpenAI Realtime API session over WebSocket.
+
+    Unlike the Azure path (which transcribes with Azure Speech and then calls
+    Azure OpenAI for analysis), this session uses a single realtime model for
+    both transcription AND structured analysis. The model is configured with a
+    forced tool call (`update_analysis`) that fires after every user turn, so
+    summary + extracted form data are pushed to the client without any extra
+    LLM round-trips. Audio is captured from the server's default microphone
+    and streamed as 24 kHz PCM16.
+    """
+
+    SAMPLE_RATE = 24000  # OpenAI Realtime expects 24kHz PCM16
+
+    # Single tool the realtime model is forced to call after each turn.
+    # Carries both the running summary and the structured extraction the
+    # frontend's smart-form expects, in one payload.
+    ANALYSIS_TOOL = {
+        "type": "function",
+        "name": "update_analysis",
+        "description": (
+            "Call this after every user utterance to update the running summary "
+            "and the extracted structured form data. The summary should evolve "
+            "across turns; key_points and action_items should accumulate."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "summary": {
+                    "type": "string",
+                    "description": "Concise 2-4 sentence rolling summary of the conversation so far.",
+                },
+                "speaker_name": {"type": "string", "description": "Speaker name if stated. Empty string if unknown."},
+                "topic": {"type": "string", "description": "Main topic in 5-10 words. Empty string if unclear."},
+                "category": {
+                    "type": "string",
+                    "enum": ["", "meeting", "interview", "lecture", "brainstorm", "support", "personal", "technical", "other"],
+                },
+                "priority": {
+                    "type": "string",
+                    "enum": ["", "high", "medium", "low"],
+                },
+                "key_points": {"type": "array", "items": {"type": "string"}},
+                "action_items": {"type": "array", "items": {"type": "string"}},
+                "notes": {"type": "string", "description": "Other relevant context. Empty string if none."},
+            },
+            "required": ["summary", "key_points", "action_items"],
+        },
+    }
+
+    def __init__(self, websocket: WebSocket, relevant_phrases: str = DEFAULT_PHRASES):
+        self.websocket = websocket
+        self.relevant_phrases = relevant_phrases
+        self.upstream: Optional[Any] = None
+        self.audio_stream = None
+        self.is_running = False
+        self.accumulated_context = ""
+        self._receive_task: Optional[asyncio.Task] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._current_partial = ""
+        self._fc_args: Dict[str, str] = {}  # call_id -> accumulating JSON string
+
+    async def send_result(self, result_type: str, text: str, extracted: Optional[Dict] = None):
+        message = {"type": result_type, "text": text}
+        if extracted:
+            message["extracted"] = extracted
+        await self.websocket.send_json(message)
+
+    async def start(self, language: str = "en-US"):
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY not configured")
+
+        try:
+            import sounddevice as sd  # noqa: F401
+        except ImportError as e:
+            raise ValueError(
+                "sounddevice is required for the OpenAI provider. "
+                "Install with: pip install sounddevice"
+            ) from e
+
+        self._loop = asyncio.get_running_loop()
+
+        url = f"{OPENAI_REALTIME_URL}?model={OPENAI_REALTIME_MODEL}"
+        headers = [
+            ("Authorization", f"Bearer {OPENAI_API_KEY}"),
+            ("OpenAI-Beta", "realtime=v1"),
+        ]
+        self.upstream = await ws_client.connect(url, additional_headers=headers)
+
+        instructions = (
+            "You are a real-time speech analyst. After EVERY user utterance, "
+            "you MUST call the `update_analysis` tool exactly once with:\n"
+            "- A concise rolling summary that evolves across turns (do not restart it).\n"
+            "- Newly inferred or updated form fields. Build on prior turns: "
+            "accumulate key_points and action_items rather than replacing them.\n"
+            "- Use empty strings for unknown scalar fields, never omit them.\n"
+            "Do not produce free-form text — only the tool call.\n\n"
+            f"Context phrases that may help disambiguate: {self.relevant_phrases}"
+        )
+
+        await self.upstream.send(json.dumps({
+            "type": "session.update",
+            "session": {
+                "modalities": ["text"],
+                "input_audio_format": "pcm16",
+                "input_audio_transcription": {"model": OPENAI_REALTIME_MODEL},
+                "turn_detection": {
+                    "type": "server_vad",
+                    "threshold": 0.5,
+                    "prefix_padding_ms": 300,
+                    "silence_duration_ms": 600,
+                    "create_response": True,    # auto-fire response after each turn
+                    "interrupt_response": True,
+                },
+                "instructions": instructions,
+                "tools": [self.ANALYSIS_TOOL],
+                "tool_choice": {"type": "function", "name": "update_analysis"},
+            }
+        }))
+
+        # Start mic capture → forward PCM16 frames to upstream
+        import sounddevice as sd
+        chunk_samples = int(self.SAMPLE_RATE * 0.05)  # 50 ms
+
+        def audio_callback(indata, frames, time_info, status):
+            if status:
+                print(f"sounddevice status: {status}")
+            pcm_bytes = bytes(indata)
+            b64 = base64.b64encode(pcm_bytes).decode("ascii")
+            payload = json.dumps({"type": "input_audio_buffer.append", "audio": b64})
+            if self._loop and self.upstream and self.is_running:
+                asyncio.run_coroutine_threadsafe(self.upstream.send(payload), self._loop)
+
+        self.audio_stream = sd.RawInputStream(
+            samplerate=self.SAMPLE_RATE,
+            channels=1,
+            dtype="int16",
+            blocksize=chunk_samples,
+            callback=audio_callback,
+        )
+        self.audio_stream.start()
+
+        self.is_running = True
+        self.accumulated_context = ""
+        self._current_partial = ""
+        self._receive_task = asyncio.create_task(self._receive_loop())
+
+        await self.send_result("status", f"OpenAI Realtime started ({OPENAI_REALTIME_MODEL})")
+
+    async def _receive_loop(self):
+        try:
+            async for raw in self.upstream:
+                event = json.loads(raw)
+                etype = event.get("type", "")
+
+                # ---- Streaming transcription (input_audio_transcription) ----
+                if etype == "conversation.item.input_audio_transcription.delta":
+                    delta = event.get("delta", "")
+                    if delta:
+                        self._current_partial += delta
+                        await self.send_result("partial", self._current_partial)
+
+                elif etype == "conversation.item.input_audio_transcription.completed":
+                    text = (event.get("transcript") or "").strip()
+                    self._current_partial = ""
+                    if text:
+                        # Track context locally for parity with the Azure path,
+                        # but DO NOT call Azure OpenAI — analysis comes from the
+                        # realtime model itself via the tool call below.
+                        self.accumulated_context += " " + text
+                        words = self.accumulated_context.split()
+                        if len(words) > 500:
+                            self.accumulated_context = " ".join(words[-500:])
+                        await self.send_result("final", text)
+
+                # ---- Forced tool call: summary + structured extraction ----
+                elif etype == "response.function_call_arguments.delta":
+                    call_id = event.get("call_id") or ""
+                    delta = event.get("delta", "")
+                    if call_id and delta:
+                        self._fc_args[call_id] = self._fc_args.get(call_id, "") + delta
+
+                elif etype == "response.function_call_arguments.done":
+                    call_id = event.get("call_id") or ""
+                    args_text = event.get("arguments") or self._fc_args.pop(call_id, "")
+                    name = event.get("name") or "update_analysis"
+                    summary = ""
+                    extracted: Dict[str, Any] = {}
+                    try:
+                        parsed = json.loads(args_text) if args_text else {}
+                        summary = (parsed.pop("summary", "") or "").strip()
+                        # Drop empty-string scalars so the frontend treats them as missing
+                        for k in ("speaker_name", "topic", "category", "priority", "notes"):
+                            if k in parsed and not parsed[k]:
+                                parsed.pop(k)
+                        parsed.setdefault("key_points", [])
+                        parsed.setdefault("action_items", [])
+                        extracted = parsed
+                    except json.JSONDecodeError as e:
+                        print(f"Tool args parse error: {e}; raw={args_text!r}")
+
+                    await self.websocket.send_json({
+                        "type": "analysis",
+                        "summary": summary,
+                        "extracted": extracted,
+                    })
+
+                    # Acknowledge so the realtime model considers the turn complete
+                    if call_id:
+                        try:
+                            await self.upstream.send(json.dumps({
+                                "type": "conversation.item.create",
+                                "item": {
+                                    "type": "function_call_output",
+                                    "call_id": call_id,
+                                    "output": json.dumps({"status": "applied"}),
+                                },
+                            }))
+                        except Exception as e:
+                            print(f"Tool ack send failed: {e}")
+
+                elif etype == "error":
+                    err = event.get("error") or {}
+                    msg = err.get("message") or "OpenAI Realtime error"
+                    await self.send_result("error", msg)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            print(f"OpenAI receive loop error: {e}")
+            try:
+                await self.send_result("error", f"OpenAI stream error: {e}")
+            except Exception:
+                pass
+
+    async def stop(self):
+        self.is_running = False
+
+        if self.audio_stream is not None:
+            try:
+                self.audio_stream.stop()
+                self.audio_stream.close()
+            except Exception as e:
+                print(f"Error stopping audio stream: {e}")
+            self.audio_stream = None
+
+        if self.upstream is not None:
+            try:
+                await self.upstream.send(json.dumps({"type": "input_audio_buffer.commit"}))
+            except Exception:
+                pass
+            try:
+                await self.upstream.close()
+            except Exception:
+                pass
+            self.upstream = None
+
+        if self._receive_task is not None:
+            self._receive_task.cancel()
+            try:
+                await self._receive_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._receive_task = None
+
+        await self.send_result("status", "Recognition stopped")
+
+    def clear_context(self):
+        self.accumulated_context = ""
+
+
 @app.websocket("/ws/speech")
 async def websocket_speech(websocket: WebSocket):
     """
@@ -499,7 +790,7 @@ async def websocket_speech(websocket: WebSocket):
     
     Client messages (first message must be auth):
     - {"action": "auth", "token": "..."}
-    - {"action": "start", "language": "en-US", "relevant_phrases": "..."}
+    - {"action": "start", "language": "en-US", "relevant_phrases": "...", "provider": "azure" | "openai"}
     - {"action": "stop"}
     - {"action": "process", "text": "...", "context": "..."}
     - {"action": "analyze", "text": "...", "previous_summary": "...", "relevant_phrases": "..."}
@@ -513,7 +804,7 @@ async def websocket_speech(websocket: WebSocket):
     - {"type": "error", "text": "..."}
     """
     await websocket.accept()
-    session: Optional[SpeechRecognitionSession] = None
+    session: Optional[Any] = None  # SpeechRecognitionSession or OpenAIRealtimeSession
     accumulated_context = ""  # For text mode
     current_summary = ""  # Track current summary
     
@@ -539,19 +830,36 @@ async def websocket_speech(websocket: WebSocket):
             action = data.get("action")
             
             if action == "start":
-                # Start speech recognition
+                # Start speech recognition (provider: "azure" default, or "openai")
                 language = data.get("language", "en-US")
                 phrases = data.get("relevant_phrases", DEFAULT_PHRASES)
-                
-                if not SPEECH_KEY or not SPEECH_REGION:
-                    await websocket.send_json({
-                        "type": "error",
-                        "text": "Speech service not configured on server"
-                    })
-                    continue
-                
-                session = SpeechRecognitionSession(websocket, phrases)
-                await session.start(language)
+                provider = (data.get("provider") or "azure").lower()
+
+                if provider == "openai":
+                    if not OPENAI_API_KEY:
+                        await websocket.send_json({
+                            "type": "error",
+                            "text": "OPENAI_API_KEY not configured on server"
+                        })
+                        continue
+                    try:
+                        session = OpenAIRealtimeSession(websocket, phrases)
+                        await session.start(language)
+                    except Exception as e:
+                        await websocket.send_json({
+                            "type": "error",
+                            "text": f"Failed to start OpenAI Realtime: {e}"
+                        })
+                        session = None
+                else:
+                    if not SPEECH_KEY or not SPEECH_REGION:
+                        await websocket.send_json({
+                            "type": "error",
+                            "text": "Speech service not configured on server"
+                        })
+                        continue
+                    session = SpeechRecognitionSession(websocket, phrases)
+                    await session.start(language)
                 
             elif action == "stop":
                 # Stop speech recognition
